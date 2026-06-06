@@ -22,28 +22,51 @@ See the tests for examples."
 
 (def ^:dynamic *default-psl-url*
   "URL of the default Mozilla Public Suffix List file."
-  "https://publicsuffix.org/list/effective_tld_names.dat")
+  "https://publicsuffix.org/list/public_suffix_list.dat")
 
 (defn load
-  "Load a Mozilla Public Suffix List format file from the Reader `source`."
-  [source]
-  (letfn [(prefix? [^String s1 ^String s2] (.startsWith s2 s1))
-          (ignorable? [s] (or (empty? s) (prefix? "//" s) (prefix? "#" s)))
-          (convert [entry n rule]
-            (let [prefix (-> entry (subs n) dns/domain)]
-              [prefix rule]))
-          (parse [entry]
-            (condp prefix? entry
-              "*." (convert entry 2 :wildcard)
-              "!"  (convert entry 1 :exception)
-              "."  (convert entry 1 :normal)
-              "+"  (convert entry 1 :dynamic)
-              ,,,  (convert entry 0 :normal)))
-          (step [[prefixes rules] entry]
-            (let [[prefix rule] (parse entry)]
-              [(conj prefixes prefix) (assoc rules prefix rule)]))]
-    (->> (line-seq source) (map str/trim) (remove ignorable?)
-         (reduce step [(dns/domain-set) {}]))))
+  "Load a Mozilla Public Suffix List format file from the Reader `source`.
+
+  The optional `opts` map supports:
+
+   - `:sections` - a set drawn from `#{:icann :private}` selecting which
+     sections of the list to include. The PSL is partitioned by the
+     `// ===BEGIN ICANN DOMAINS===` and `// ===BEGIN PRIVATE DOMAINS===` marker
+     comments; pass `#{:icann}` to ignore the user-contributed PRIVATE section.
+     Defaults to both sections (the historical behavior)."
+  ([source] (load source nil))
+  ([source {:keys [sections] :or {sections #{:icann :private}}}]
+   (letfn [(prefix? [^String s1 ^String s2] (.startsWith s2 s1))
+           (marker [s]
+             (cond (prefix? "// ===BEGIN ICANN" s)   :icann
+                   (prefix? "// ===BEGIN PRIVATE" s) :private))
+           (ignorable? [s] (or (empty? s) (prefix? "//" s) (prefix? "#" s)))
+           (convert [entry n rule]
+             (let [prefix (-> entry (subs n) dns/domain)]
+               [prefix rule]))
+           (parse [entry]
+             (condp prefix? entry
+               "*." (convert entry 2 :wildcard)
+               "!"  (convert entry 1 :exception)
+               "."  (convert entry 1 :normal)
+               "+"  (convert entry 1 :dynamic)
+               ,,,  (convert entry 0 :normal)))
+           ;; Track the current section; entries before any marker count as
+           ;; ICANN (the list opens with the ICANN section after its license).
+           (step [{:keys [section prefixes rules] :as acc} entry]
+             (if-let [m (marker entry)]
+               (assoc acc :section m)
+               (if (or (ignorable? entry) (not (contains? sections section)))
+                 acc
+                 (let [[prefix rule] (parse entry)]
+                   (assoc acc
+                          :prefixes (conj prefixes prefix)
+                          :rules    (assoc rules prefix rule))))))]
+     (let [{:keys [prefixes rules]}
+           (->> (line-seq source) (map str/trim)
+                (reduce step {:section :icann
+                              :prefixes (dns/domain-set), :rules {}}))]
+       [prefixes rules]))))
 
 (def ^:private memo-load
   (memoize
