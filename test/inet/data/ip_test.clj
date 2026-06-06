@@ -92,3 +92,33 @@
 (deftest test-network-set-edn
   (let [nets (ip/network-set "10.0.0.0/8" "192.168.0.0/16")]
     (is (= nets (-> nets pr-str read-string)))))
+
+;; IPv6 parity for the range/subnet helpers (previously untested).
+(deftest test-network-nth
+  (testing "IPv4"
+    (is (= (ip/address "192.168.0.0") (ip/network-nth "192.168.0.0/30" 0)))
+    (is (= (ip/address "192.168.0.2") (ip/network-nth "192.168.0.0/30" 2)))
+    (is (= (ip/address "192.168.0.3") (ip/network-nth "192.168.0.0/30" -1))))
+  (testing "IPv6"
+    (is (= (ip/address "2001:db8::")  (ip/network-nth "2001:db8::/126" 0)))
+    (is (= (ip/address "2001:db8::3") (ip/network-nth "2001:db8::/126" 3)))
+    (is (= (ip/address "2001:db8::3") (ip/network-nth "2001:db8::/126" -1)))))
+
+(deftest test-network-subnets
+  (testing "IPv4"
+    (is (= (ip/network-set "10.0.0.0/9" "10.128.0.0/9")
+           (ip/network-subnets "10.0.0.0/8")))
+    (is (= (ip/network-set "10.0.0.0/10" "10.64.0.0/10"
+                           "10.128.0.0/10" "10.192.0.0/10")
+           (ip/network-subnets "10.0.0.0/8" 2))))
+  (testing "IPv6"
+    (is (= (ip/network-set "2001:db8::/33" "2001:db8:8000::/33")
+           (ip/network-subnets "2001:db8::/32")))))
+
+(deftest test-address-networks-v6
+  (testing "IPv4 single aligned block"
+    (is (= (ip/network-set "192.168.0.0/30")
+           (ip/address-networks "192.168.0.0" "192.168.0.3"))))
+  (testing "IPv6 single aligned block"
+    (is (= (ip/network-set "2001:db8::/126")
+           (ip/address-networks "2001:db8::" "2001:db8::3")))))
