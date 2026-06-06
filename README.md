@@ -1,6 +1,7 @@
 # inet.data
 
-[![Build Status](https://secure.travis-ci.org/damballa/inet.data.png)](http://travis-ci.org/damballa/inet.data)
+[![Clojars Project](https://img.shields.io/clojars/v/net.clojars.savya/inet.data.svg)](https://clojars.org/net.clojars.savya/inet.data)
+[![test](https://github.com/jsavyasachi/inet.data/actions/workflows/test.yml/badge.svg)](https://github.com/jsavyasachi/inet.data/actions/workflows/test.yml)
 
 Inet.data is a library for modeling various Internet-related conceptual
 entities as *data*, supporting applications which are *about* the modeled
@@ -8,23 +9,25 @@ entities versus *interfacing* with them.
 
 ## Installation
 
-Inet.data is available on Clojars.  Add this `:dependency` to your Leiningen
-`project.clj`:
+Inet.data is available on Clojars.
+
+Leiningen (`project.clj`):
 
 ```clj
-[com.damballa/inet.data "0.5.7"]
+[net.clojars.savya/inet.data "0.6.0"]
 ```
 
-Please note that the group ID has changed with with the 0.5.7 release from
-`inet.data` to `com.damballa`.  New releases will also be pushed under the
-`inet.data` group ID until 0.6.0, but that group ID should be considered
-deprecated.
+Clojure CLI (`deps.edn`):
+
+```clj
+net.clojars.savya/inet.data {:mvn/version "0.6.0"}
+```
 
 ## Usage
 
 Currently inet.data includes support for IP addresses and networks and for DNS
 domain names.  Example usage follows; [detailed API
-documentation](http://damballa.github.com/inet.data/) available.
+documentation](https://cljdoc.org/d/net.clojars.savya/inet.data) available.
 
 ### inet.data.ip
 
@@ -98,6 +101,9 @@ need to provide their own list(s) customized for their particular use cases.
 ## License
 
 Copyright © 2012-2015 Marshall Bockrath-Vandegrift & Damballa, Inc.
+
+Maintenance fork (2026) by Savyasachi, preserving the original Eclipse Public
+License.  Original project: https://github.com/damballa/inet.data
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
