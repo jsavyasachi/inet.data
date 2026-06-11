@@ -9,6 +9,8 @@
            [inet.data.dns DNSDomain]))
 
 (def ip-address-schema
+  "Apache Avro (abracad) schema serializing an IPAddress as a v4 (4-byte) or v6
+  (16-byte) fixed record."
   {:name "inet.data.ip.address", :type "record",
    :fields [{:name "address",
              :type [{:name "address-v4", :type "fixed", :size 4},
@@ -21,6 +23,8 @@
   (field-list [_] #{:address}))
 
 (def ip-network-schema
+  "Apache Avro (abracad) schema serializing an IPNetwork as a v4/v6 prefix plus
+  an integer prefix length."
   {:name "inet.data.ip.network", :type "record",
    :fields [{:name "prefix",
              :type [{:name "prefix-v4", :type "fixed", :size 4},
@@ -37,6 +41,7 @@
   (field-list [_] #{:prefix :length}))
 
 (def dns-domain-schema
+  "Apache Avro (abracad) schema serializing a DNSDomain as its wire-format bytes."
   {:name "inet.data.dns.domain", :type "record",
    :fields [{:name "bytes", :type "bytes"}]})
 
