@@ -1,4 +1,4 @@
-(defproject net.clojars.savya/inet.data "0.7.1"
+(defproject net.clojars.savya/inet.data "0.7.2"
   :description "Represent and manipulate various Internet entities as data."
   :url "https://github.com/jsavyasachi/inet.data"
   :license {:name "Eclipse Public License"
