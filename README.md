@@ -8,6 +8,10 @@ Inet.data is a library for modeling various Internet-related conceptual
 entities as *data*, supporting applications which are *about* the modeled
 entities versus *interfacing* with them.
 
+## Stack
+
+<a href="https://clojure.org"><img src="https://img.shields.io/badge/Clojure-5881D8?style=flat&logo=clojure&logoColor=fff" alt="Clojure" /></a>
+
 ## Installation
 
 Inet.data is available on Clojars.
