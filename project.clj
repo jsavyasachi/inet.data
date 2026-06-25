@@ -5,7 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :global-vars {*warn-on-reflection* true}
   :dependencies [[org.clojure/clojure "1.12.5"]
-                 [net.clojars.savya/hier-set "1.2.0"]]
+                 [net.clojars.savya/hier-set "1.2.1"]]
   :source-paths ["src/clojure"]
   ;; The IP and DNS parsers under inet/data/{ip,dns} are generated from the ragel
   ;; grammars in src/ragel/*.java.rl and committed directly, so building no
@@ -18,7 +18,7 @@
                                         "+clojure-1-12")]}
   :profiles {:provided {:dependencies
                         [[byteable "0.2.0"]
-                         [com.damballa/abracad "0.4.12"]]}
+                         [com.damballa/abracad "0.4.13"]]}
              :clojure-1-10 {:dependencies [[org.clojure/clojure "1.10.3"]]}
              :clojure-1-11 {:dependencies [[org.clojure/clojure "1.11.4"]]}
              :clojure-1-12 {:dependencies [[org.clojure/clojure "1.12.5"]]}})
