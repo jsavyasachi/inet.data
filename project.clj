@@ -1,8 +1,8 @@
 (defproject net.clojars.savya/inet.data "0.7.2"
   :description "Represent and manipulate various Internet entities as data."
   :url "https://github.com/jsavyasachi/inet.data"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :license {:name "Eclipse Public License 1.0"
+            :url "https://www.eclipse.org/legal/epl-v10.html"}
   :global-vars {*warn-on-reflection* true}
   :dependencies [[org.clojure/clojure "1.12.5"]
                  [net.clojars.savya/hier-set "1.2.1"]]
