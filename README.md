@@ -107,8 +107,8 @@ need to provide their own list(s) customized for their particular use cases.
 
 Copyright © 2012-2015 Marshall Bockrath-Vandegrift & Damballa, Inc.
 
-Maintenance fork (2026) by Savyasachi, preserving the original Eclipse Public
-License.  Original project: https://github.com/damballa/inet.data
+Maintenance fork (2026) by Savyasachi, original: https://github.com/damballa/inet.data.
+Distributed under the [Eclipse Public License 1.0](https://www.eclipse.org/legal/epl-v10.html), preserving the original license.
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
