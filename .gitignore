@@ -12,3 +12,5 @@
 .lein-repl-history
 /tmp/
 .nrepl*
+.cpcache/
+target/
