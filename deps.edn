@@ -1,7 +1,7 @@
 {:paths ["src/clojure" "resources"]
 
  :deps {org.clojure/clojure {:mvn/version "1.12.5"}
-        net.clojars.savya/hier-set {:mvn/version "1.2.1"}}
+        net.clojars.savya/hier-set {:mvn/version "1.2.2"}}
 
  :aliases
  {:test
