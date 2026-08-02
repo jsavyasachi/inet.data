@@ -65,7 +65,10 @@
   Serializable
 
   Object
-  (toString [this] (string-address bytes))
+  (toString [this]
+    (str (string-address bytes)
+         (when-let [zone (:zone meta)]
+           (str "%" zone))))
   (hashCode [this] (bytes-hash-code bytes))
   (equals [this other]
     (or (identical? this other)
@@ -95,7 +98,12 @@
 (ns-unmap *ns* '->IPAddress)
 
 (defn address
-  "The IP address for representation `addr`."
+  "The IP address for representation addr.
+
+  IPv6 zone IDs are accepted and carried in metadata for text round-tripping
+  only. A zone is not part of address identity, equality, hashing, comparison,
+  or network ordering, and is not preserved by serialization. Zones on IPv4
+  addresses and network literals are rejected."
   {:tag `IPAddress}
   [addr] (-address addr))
 
@@ -389,33 +397,54 @@ network prefix, default 1."
 (defn ^:private string-network-split
   [net] (str/split net #"/" 2))
 
+(defn ^:private string-address-parts
+  [addr]
+  (let [percent (str/last-index-of addr "%")]
+    (if (nil? percent)
+      [addr nil]
+      [(subs addr 0 percent) (subs addr (inc percent))])))
+
 (defn ^:private string-network-parts
   [net] (let [[prefix length] (string-network-split net)
+              [prefix zone] (string-address-parts prefix)
               length (when length
                        (or (ignore-errors (Long/parseLong length)) -1))]
-          [(IPParser/parse prefix) length]))
+          [(when (and (nil? zone) (IPParser/isValid prefix))
+             (IPParser/parse prefix)) length]))
 
 (extend-type String
   IPAddressConstruction
-  (-address [addr] (address* addr (address-bytes addr)))
+  (-address [addr]
+    (let [[literal zone] (string-address-parts (first (string-network-split addr)))
+          ^bytes bytes (when (IPParser/isValid literal)
+                         (IPParser/parse literal))]
+      (when (and bytes
+                 (or (nil? zone) (seq zone))
+                 (or (nil? zone) (= IPParser/IPV6_BYTE_LEN (alength bytes))))
+        (IPAddress. (when zone {:zone zone}) bytes))))
 
   IPAddressOperations
   (-address? [this]
-    (IPParser/isValid (first (string-network-split this))))
+    (boolean (-address this)))
   (address-bytes [this]
-    (IPParser/parse (first (string-network-split this))))
+    (let [[literal _] (string-address-parts (first (string-network-split this)))]
+      (IPParser/parse literal)))
   (address-length [this]
-    (IPParser/length (first (string-network-split this))))
+    (let [[literal _] (string-address-parts (first (string-network-split this)))]
+      (IPParser/length literal)))
 
   IPNetworkConstruction
   (-network
     ([this]
        (let [[prefix length] (string-network-parts this)]
-         (if length
-           (network* this prefix length)
-           (network* this prefix (address-length prefix)))))
+         (when prefix
+           (if length
+             (network* this prefix length)
+             (network* this prefix (address-length prefix))))))
     ([this length]
-       (network* this (address-bytes this) length)))
+       (let [[prefix _] (string-network-parts this)]
+         (when prefix
+           (network* this prefix length)))))
 
   IPNetworkOperations
   (network?*

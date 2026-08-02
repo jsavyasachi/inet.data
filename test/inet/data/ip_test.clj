@@ -42,6 +42,23 @@
     (is (= "2001:db8:0:1:1:1:1:1/128"
            (str (ip/network "2001:db8:0:1:1:1:1:1"))))))
 
+(deftest test-ipv6-zone-ids
+  (let [zoned (ip/address "fe80::1%eth0")
+        unzoned (ip/address "fe80::1")]
+    (is (ip/address? "fe80::1%eth0"))
+    (is (= "fe80::1%eth0" (str zoned)))
+    (is (= {:zone "eth0"} (meta zoned)))
+    (is (= unzoned zoned))
+    (is (= (hash unzoned) (hash zoned)))
+    (is (zero? (compare unzoned zoned)))
+    (is (nil? (ip/address "192.168.1.1%eth0")))
+    (is (nil? (ip/network "fe80::1%eth0")))
+    (is (nil? (ip/network "fe80::1%eth0/64"))))
+  (doseq [literal ["0.0.0.0" "192.168.1.1" "::" "2001:db8::1"
+                   "fe80::1%eth0" "::ffff:192.168.1.1"]]
+    (let [addr (ip/address literal)]
+      (is (= addr (ip/address (str addr))) literal))))
+
 (deftest test-network
   (testing "Creating networks"
     (testing "from IPv4 addresses"
