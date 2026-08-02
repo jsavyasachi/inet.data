@@ -24,6 +24,9 @@
       (is (= addr (-> addr ip/address str)) "No IPv6 elision-stomping"))))
 
 (deftest test-rfc-5952-ipv6-formatting
+  (testing "The first zero run is compressed when longest runs tie"
+    (is (= "2001:db8::1:0:0:1"
+           (str (ip/address "2001:db8:0:0:1:0:0:1")))))
   (testing "A single zero group is not compressed"
     (is (= "2001:db8:0:1:1:1:1:1"
            (str (ip/address "2001:db8:0:1:1:1:1:1")))))
@@ -35,6 +38,9 @@
   (testing "Existing canonical forms remain unchanged"
     (is (= "2001:0:0:1::1"
            (str (ip/address "2001:0:0:1:0:0:0:1"))))
+    (let [addr "2001:db8:0:0:1:0:0:1"]
+      (is (= (ip/address addr)
+             (ip/address (str (ip/address addr))))))
     (is (= "::"
            (str (ip/address "0:0:0:0:0:0:0:0"))))
     (is (= "2001:db8::1"

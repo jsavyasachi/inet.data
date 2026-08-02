@@ -51,7 +51,8 @@ evaluated at macro-expansion time."
 
 (defn longest-run
   "Find the longest run of the value x in the collection coll.  Returns the
-pair of the starting index and length on success and nil on failure."
+  pair of the starting index and length on success and nil on failure.  When
+  multiple runs have the same maximum length, returns the first such run."
   [x coll]
   (let [runs (->> (partition-by identity coll)
                   (reductions (fn [[_ n pos] s]
@@ -60,7 +61,11 @@ pair of the starting index and length on success and nil on failure."
                   (drop 1)
                   (filter #(= x (first %))))]
     (when (seq runs)
-      (let [[_ n pos] (apply max-key second runs)]
+      (let [[_ n pos] (reduce (fn [best run]
+                                (if (> (second run) (second best))
+                                  run
+                                  best))
+                              runs)]
         [pos n]))))
 
 (defn ubyte
