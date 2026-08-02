@@ -13,10 +13,10 @@ hierarchical order; and (c) for a given child domain and ancestor domain, one
 may easily find the next longer child of the ancestor.  The primary down-side
 is that this form does make it more difficult to find the immediate parent of a
 given domain."
-  (:require [clojure.string :as str])
-  (:use [inet.data.util :only [ignore-errors ffilter ubyte sbyte
-                               bytes-hash-code]]
-        [hier-set.core :only [hier-set-by]])
+  (:require [clojure.string :as str]
+            [inet.data.util :refer [ignore-errors ffilter ubyte sbyte
+                                    bytes-hash-code]]
+            [hier-set.core :refer [hier-set-by]])
   (:import [clojure.lang IFn ILookup IObj]
            [inet.data.dns DNSDomainParser DNSDomainComparison]
            [java.io Serializable]

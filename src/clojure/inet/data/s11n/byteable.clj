@@ -2,8 +2,8 @@
   "Byteable serialization implementations for inet.data type."
   (:require [byteable.core :as b]
             [inet.data.ip :as ip]
-            [inet.data.dns :as dns])
-  (:use [inet.data.util :only [doto-let sbyte ubyte]])
+            [inet.data.dns :as dns]
+            [inet.data.util :refer [doto-let sbyte ubyte]])
   (:import [inet.data.ip IPAddress IPNetwork]
            [inet.data.dns DNSDomain]))
 

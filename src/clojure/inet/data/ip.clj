@@ -1,9 +1,9 @@
 (ns inet.data.ip
   "Functions for interacting with IP addresses and networks."
-  (:require [clojure.string :as str])
-  (:use [inet.data.util :only [ignore-errors case-expr ubyte sbyte longest-run
-                               bytes-hash-code doto-let]]
-        [hier-set.core :only [hier-set-by]])
+  (:require [clojure.string :as str]
+            [inet.data.util :refer [ignore-errors case-expr ubyte sbyte longest-run
+                                    bytes-hash-code doto-let]]
+            [hier-set.core :refer [hier-set-by]])
   (:import [clojure.lang IFn IObj ILookup BigInt Indexed Seqable]
            [inet.data.ip IPParser IPNetworkComparison]
            [java.io Serializable]

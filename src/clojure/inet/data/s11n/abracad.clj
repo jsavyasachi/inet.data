@@ -2,8 +2,8 @@
   "Avro serialization implementations for inet.data types."
   (:require [abracad.avro :as avro]
             [inet.data.ip :as ip]
-            [inet.data.dns :as dns])
-  (:use [inet.data.util :only [doto-let sbyte ubyte]])
+            [inet.data.dns :as dns]
+            [inet.data.util :refer [doto-let sbyte ubyte]])
   (:import [java.nio ByteBuffer]
            [inet.data.ip IPAddress IPNetwork]
            [inet.data.dns DNSDomain]))

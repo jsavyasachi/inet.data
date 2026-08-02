@@ -17,8 +17,8 @@ See the tests for examples."
   (:refer-clojure :exclude [load])
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
-            [inet.data.dns :as dns])
-  (:use [inet.data.util :only [ffilter]]))
+            [inet.data.dns :as dns]
+            [inet.data.util :refer [ffilter]]))
 
 (def ^:dynamic *default-psl-url*
   "URL of the default Mozilla Public Suffix List file."
