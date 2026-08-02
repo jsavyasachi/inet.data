@@ -95,6 +95,22 @@ which is also implemented for strings and byte arrays.
   )
 ```
 
+### inet.data.arpa
+
+The `inet.data.arpa` namespace bridges IP addresses and networks with reverse
+DNS domains. IPv4 zones use octet-aligned prefixes and IPv6 zones use
+nibble-aligned prefixes.
+
+```clj
+(require '[inet.data.arpa :as arpa])
+
+(arpa/ip->domain "10.0.2.1")
+;;=> #dns/domain "1.2.0.10.in-addr.arpa"
+
+(arpa/domain->ip "2.0.10.in-addr.arpa")
+;;=> #ip/network "10.0.2.0/24"
+```
+
 ### inet.data.format.psl
 
 The `inet.data.format.psl` namespace defines functions for working with files
