@@ -477,6 +477,162 @@ network prefix, default 1."
     ([this length] (network?* (address-bytes this) length)))
   (network-length [this] (address-length this)))
 
+(def ^:private special-use-blocks
+  {:this-network (network "0.0.0.0/8")
+   :private (network "10.0.0.0/8")
+   :shared-address-space (network "100.64.0.0/10")
+   :loopback (network "127.0.0.0/8")
+   :link-local (network "169.254.0.0/16")
+   :private-172 (network "172.16.0.0/12")
+   :ietf-protocol-assignments (network "192.0.0.0/24")
+   :documentation (network "192.0.2.0/24")
+   :six-to-four-relay-anycast (network "192.88.99.0/24")
+   :private-192 (network "192.168.0.0/16")
+   :benchmarking (network "198.18.0.0/15")
+   :documentation-2 (network "198.51.100.0/24")
+   :documentation-3 (network "203.0.113.0/24")
+   :multicast (network "224.0.0.0/4")
+   :reserved (network "240.0.0.0/4")
+   :limited-broadcast (network "255.255.255.255/32")
+   :unspecified (network "::/128")
+   :loopback-v6 (network "::1/128")
+   :ipv4-mapped (network "::ffff:0:0/96")
+   :ipv4-ipv6-translation (network "64:ff9b::/96")
+   :discard-only (network "100::/64")
+   :teredo (network "2001::/32")
+   :documentation-v6 (network "2001:db8::/32")
+   :six-to-four (network "2002::/16")
+   :unique-local (network "fc00::/7")
+   :link-local-v6 (network "fe80::/10")
+   :multicast-v6 (network "ff00::/8")})
+
+(def ^:private special-use-block-order
+  (sort-by (comp - network-length val) special-use-blocks))
+
+(defn ^:private special-use-network
+  [value]
+  (cond (address? value) (network value)
+        (network? value) (network value)))
+
+(defn ^:private matching-special-use-blocks
+  [value]
+  (when-let [value (special-use-network value)]
+    (keep (fn [[name block]]
+            (when (network-contains? block value) name))
+          special-use-block-order)))
+
+(defn special-use
+  "Return the most-specific special-use block keyword for `value`, or nil.
+
+  Address-like and network-like values are accepted.  For a network value, the
+  result is non-nil only when the entire network is inside one special-use
+  block.  IPv4-mapped IPv6 addresses are classified as `:ipv4-mapped`; they
+  are not unwrapped and classified as IPv4 addresses."
+  [value]
+  (first (matching-special-use-blocks value)))
+
+(defn ^:private special-use-in?
+  [value names]
+  (some names (matching-special-use-blocks value)))
+
+(defn private?
+  "Return true when `value` is in an RFC 1918 private block.
+
+  For a network value, true requires the entire network to be inside one
+  private block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  [value]
+  (special-use-in? value #{:private :private-172 :private-192}))
+
+(defn loopback?
+  "Return true when `value` is in an IPv4 or IPv6 loopback block.
+
+  For a network value, true requires the entire network to be inside a
+  loopback block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  [value]
+  (special-use-in? value #{:loopback :loopback-v6}))
+
+(defn link-local?
+  "Return true when `value` is in an IPv4 or IPv6 link-local block.
+
+  For a network value, true requires the entire network to be inside a
+  link-local block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  [value]
+  (special-use-in? value #{:link-local :link-local-v6}))
+
+(defn multicast?
+  "Return true when `value` is in an IPv4 or IPv6 multicast block.
+
+  For a network value, true requires the entire network to be inside a
+  multicast block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  [value]
+  (special-use-in? value #{:multicast :multicast-v6}))
+
+(defn unique-local?
+  "Return true when `value` is in the IPv6 unique-local block.
+
+  For a network value, true requires the entire network to be inside the
+  unique-local block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  [value]
+  (special-use-in? value #{:unique-local}))
+
+(defn shared-address-space?
+  "Return true when `value` is in the IPv4 shared address space block.
+
+  For a network value, true requires the entire network to be inside the
+  shared address space block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  [value]
+  (special-use-in? value #{:shared-address-space}))
+
+(defn documentation?
+  "Return true when `value` is in an IPv4 or IPv6 documentation block.
+
+  For a network value, true requires the entire network to be inside a
+  documentation block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  [value]
+  (special-use-in? value #{:documentation :documentation-2 :documentation-3
+                            :documentation-v6}))
+
+(defn benchmarking?
+  "Return true when `value` is in the IPv4 benchmarking block.
+
+  For a network value, true requires the entire network to be inside the
+  benchmarking block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  [value]
+  (special-use-in? value #{:benchmarking}))
+
+(defn unspecified?
+  "Return true when `value` is the IPv6 unspecified address.
+
+  For a network value, true requires the entire network to be `::/128`.
+  IPv4-mapped IPv6 addresses are not unwrapped."
+  [value]
+  (special-use-in? value #{:unspecified}))
+
+(defn broadcast?
+  "Return true when `value` is the IPv4 limited broadcast address.
+
+  For a network value, true requires the entire network to be
+  `255.255.255.255/32`. IPv4-mapped IPv6 addresses are not unwrapped."
+  [value]
+  (special-use-in? value #{:limited-broadcast}))
+
+(defn reserved?
+  "Return true when `value` is in the IPv4 reserved-for-future-use block.
+
+  For a network value, true requires the entire network to be inside the
+  reserved block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  [value]
+  (special-use-in? value #{:reserved}))
+
+(defn global?
+  "Return true when `value` is valid and matches no special-use block.
+
+  For a network value, true requires the entire network to be outside every
+  special-use block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  [value]
+  (boolean (and (special-use-network value)
+                (not (seq (matching-special-use-blocks value))))))
+
 (defmethod clojure.core/print-method IPAddress
   ([^IPAddress addr ^java.io.Writer w]
      (.write w "#ip/address \"")

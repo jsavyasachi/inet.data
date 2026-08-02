@@ -47,6 +47,10 @@ is also implemented for strings, byte arrays, and `java.net.InetAddress`.
 
 (ip/network-contains? "192.168.1.0/24" "192.168.1.1") ;;=> true
 
+(ip/private? "192.168.1.1") ;;=> true
+(ip/special-use "2001:db8::1") ;;=> :documentation-v6
+(ip/global? "8.8.8.8") ;;=> true
+
 (ip/address? "600d::") ;;=> true
 (ip/address? "::bad::") ;;=> false
 

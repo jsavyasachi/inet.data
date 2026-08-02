@@ -122,3 +122,63 @@
   (testing "IPv6 single aligned block"
     (is (= (ip/network-set "2001:db8::/126")
            (ip/address-networks "2001:db8::" "2001:db8::3")))))
+
+(deftest test-special-use-blocks
+  (let [blocks {:this-network ["0.0.0.0" "0.0.0.0" "0.255.255.255"]
+                :private ["10.0.0.1" "10.0.0.0" "10.255.255.255"]
+                :shared-address-space ["100.64.0.1" "100.64.0.0" "100.127.255.255"]
+                :loopback ["127.0.0.1" "127.0.0.0" "127.255.255.255"]
+                :link-local ["169.254.1.1" "169.254.0.0" "169.254.255.255"]
+                :private-172 ["172.16.1.1" "172.16.0.0" "172.31.255.255"]
+                :ietf-protocol-assignments ["192.0.0.1" "192.0.0.0" "192.0.0.255"]
+                :documentation ["192.0.2.1" "192.0.2.0" "192.0.2.255"]
+                :six-to-four-relay-anycast ["192.88.99.1" "192.88.99.0" "192.88.99.255"]
+                :private-192 ["192.168.1.1" "192.168.0.0" "192.168.255.255"]
+                :benchmarking ["198.18.0.1" "198.18.0.0" "198.19.255.255"]
+                :documentation-2 ["198.51.100.1" "198.51.100.0" "198.51.100.255"]
+                :documentation-3 ["203.0.113.1" "203.0.113.0" "203.0.113.255"]
+                :multicast ["224.0.0.1" "224.0.0.0" "239.255.255.255"]
+                :reserved ["240.0.0.1" "240.0.0.0" "255.255.255.254"]
+                :limited-broadcast ["255.255.255.255" "255.255.255.255" "255.255.255.255"]
+                :unspecified ["::" "::" "::"]
+                :loopback-v6 ["::1" "::1" "::1"]
+                :ipv4-mapped ["::ffff:10.0.0.1" "::ffff:0:0" "::ffff:ffff:ffff"]
+                :ipv4-ipv6-translation ["64:ff9b::1" "64:ff9b::" "64:ff9b::ffff:ffff"]
+                :discard-only ["100::1" "100::" "100::ffff:ffff:ffff:ffff"]
+                :teredo ["2001::1" "2001::" "2001:0:ffff:ffff:ffff:ffff:ffff:ffff"]
+                :documentation-v6 ["2001:db8::1" "2001:db8::" "2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"]
+                :six-to-four ["2002::1" "2002::" "2002:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
+                :unique-local ["fd00::1" "fc00::" "fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
+                :link-local-v6 ["fe80::1" "fe80::" "febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
+                :multicast-v6 ["ff00::1" "ff00::" "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]}]
+    (doseq [[block [representative first last]] blocks]
+      (is (= block (ip/special-use representative)) representative)
+      (is (= block (ip/special-use first)) first)
+      (is (= block (ip/special-use last)) last))))
+
+(deftest test-special-use-predicates
+  (testing "category predicates"
+    (is (ip/private? "10.1.2.3"))
+    (is (ip/private? "172.16.0.0/12"))
+    (is (not (ip/private? "172.16.0.0/11")))
+    (is (ip/loopback? "127.0.0.1"))
+    (is (ip/link-local? "fe80::1"))
+    (is (ip/multicast? "224.0.0.1"))
+    (is (ip/multicast? "ff02::1"))
+    (is (ip/unique-local? "fc00::1"))
+    (is (ip/shared-address-space? "100.64.0.1"))
+    (is (ip/documentation? "2001:db8::1"))
+    (is (ip/benchmarking? "198.18.0.1"))
+    (is (ip/unspecified? "::"))
+    (is (ip/broadcast? "255.255.255.255"))
+    (is (ip/reserved? "240.0.0.1")))
+  (testing "global addresses"
+    (is (ip/global? "8.8.8.8"))
+    (is (ip/global? "2606:4700:4700::1111"))
+    (is (not (ip/global? "192.168.1.1"))))
+  (testing "IPv4-mapped IPv6 is not unwrapped"
+    (is (= :ipv4-mapped (ip/special-use "::ffff:10.0.0.1")))
+    (is (not (ip/private? "::ffff:10.0.0.1"))))
+  (testing "malformed values are non-exceptional"
+    (is (nil? (ip/special-use "not-an-address")))
+    (is (false? (ip/global? "not-an-address")))))
