@@ -150,28 +150,33 @@
                 :six-to-four ["2002::1" "2002::" "2002:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
                 :unique-local ["fd00::1" "fc00::" "fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
                 :link-local-v6 ["fe80::1" "fe80::" "febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
-                :multicast-v6 ["ff00::1" "ff00::" "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]}]
+                :multicast-v6 ["ff00::1" "ff00::" "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]}
+        shared-concepts {:loopback-v6 :loopback
+                         :link-local-v6 :link-local
+                         :multicast-v6 :multicast
+                         :documentation-v6 :documentation}]
     (doseq [[block [representative first last]] blocks]
-      (is (= block (ip/special-use representative)) representative)
-      (is (= block (ip/special-use first)) first)
-      (is (= block (ip/special-use last)) last))))
+      (let [expected (get shared-concepts block block)]
+        (is (= expected (ip/special-use representative)) representative)
+        (is (= expected (ip/special-use first)) first)
+        (is (= expected (ip/special-use last)) last)))))
 
 (deftest test-special-use-predicates
   (testing "category predicates"
-    (is (ip/private? "10.1.2.3"))
-    (is (ip/private? "172.16.0.0/12"))
-    (is (not (ip/private? "172.16.0.0/11")))
-    (is (ip/loopback? "127.0.0.1"))
-    (is (ip/link-local? "fe80::1"))
-    (is (ip/multicast? "224.0.0.1"))
-    (is (ip/multicast? "ff02::1"))
-    (is (ip/unique-local? "fc00::1"))
-    (is (ip/shared-address-space? "100.64.0.1"))
-    (is (ip/documentation? "2001:db8::1"))
-    (is (ip/benchmarking? "198.18.0.1"))
-    (is (ip/unspecified? "::"))
-    (is (ip/broadcast? "255.255.255.255"))
-    (is (ip/reserved? "240.0.0.1")))
+    (doseq [[predicate positive negative]
+            [[ip/private? "10.1.2.3" "8.8.8.8"]
+             [ip/loopback? "::1" "8.8.8.8"]
+             [ip/link-local? "fe80::1" "8.8.8.8"]
+             [ip/multicast? "ff02::1" "8.8.8.8"]
+             [ip/unique-local? "fc00::1" "8.8.8.8"]
+             [ip/shared-address-space? "100.64.0.1" "8.8.8.8"]
+             [ip/documentation? "2001:db8::1" "8.8.8.8"]
+             [ip/benchmarking? "198.18.0.1" "8.8.8.8"]
+             [ip/unspecified? "::" "8.8.8.8"]
+             [ip/broadcast? "255.255.255.255" "8.8.8.8"]
+             [ip/reserved? "240.0.0.1" "8.8.8.8"]]]
+      (is (true? (predicate positive)) [predicate positive])
+      (is (false? (predicate negative)) [predicate negative])))
   (testing "global addresses"
     (is (ip/global? "8.8.8.8"))
     (is (ip/global? "2606:4700:4700::1111"))

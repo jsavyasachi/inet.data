@@ -509,6 +509,12 @@ network prefix, default 1."
 (def ^:private special-use-block-order
   (sort-by (comp - network-length val) special-use-blocks))
 
+(def ^:private special-use-concepts
+  {:loopback-v6 :loopback
+   :link-local-v6 :link-local
+   :multicast-v6 :multicast
+   :documentation-v6 :documentation})
+
 (defn ^:private special-use-network
   [value]
   (cond (address? value) (network value)
@@ -522,18 +528,19 @@ network prefix, default 1."
           special-use-block-order)))
 
 (defn special-use
-  "Return the most-specific special-use block keyword for `value`, or nil.
+  "Return the most-specific special-use concept keyword for `value`, or nil.
 
   Address-like and network-like values are accepted.  For a network value, the
   result is non-nil only when the entire network is inside one special-use
   block.  IPv4-mapped IPv6 addresses are classified as `:ipv4-mapped`; they
   are not unwrapped and classified as IPv4 addresses."
   [value]
-  (first (matching-special-use-blocks value)))
+  (let [block (first (matching-special-use-blocks value))]
+    (get special-use-concepts block block)))
 
 (defn ^:private special-use-in?
   [value names]
-  (some names (matching-special-use-blocks value)))
+  (boolean (some names (matching-special-use-blocks value))))
 
 (defn private?
   "Return true when `value` is in an RFC 1918 private block.
