@@ -11,19 +11,6 @@ neither namespace depends on the other."
   [^bytes bytes index]
   (bit-and 0xff (aget bytes index)))
 
-(defn- address-string->bytes
-  [address]
-  (if (str/includes? address ".")
-    (byte-array (map #(unchecked-byte (Long/parseLong %)) (str/split address #"\.")))
-    (let [[left right] (str/split address #"::" -1)
-          left (if (seq left) (str/split left #":") [])
-          right (if (seq right) (str/split right #":") [])
-          groups (concat left (repeat (- 8 (count left) (count right)) "0") right)]
-      (byte-array (mapcat (fn [group]
-                            (let [value (Long/parseLong group 16)]
-                              [(unchecked-byte (bit-shift-right value 8)) (unchecked-byte value)]))
-                          groups)))))
-
 (defn- ipv4-domain-name
   [^bytes bytes prefix-length]
   (str (->> (range (/ prefix-length 8))
@@ -59,10 +46,7 @@ neither namespace depends on the other."
     (let [network? (ip/network? value)
           address? (ip/address? value)]
       (when (or network? address?)
-        (let [address-string (if network?
-                               (first (str/split (str value) #"/" 2))
-                               (str (ip/address value)))
-              ^bytes bytes (address-string->bytes address-string)
+        (let [^bytes bytes (ip/address-bytes value)
               address-length (* 8 (alength bytes))
               prefix-length (if network? (ip/network-length value) address-length)]
           (when (and (<= 0 prefix-length address-length)

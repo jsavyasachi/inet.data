@@ -44,10 +44,16 @@
         (->str [xs] (->> xs (map #(format "%x" %)) (str/join ":")))]
   (defn ^:private string-address-ipv6
     [^bytes bytes]
-    (let [shorts (->> bytes (map ubyte) (partition 2) (map ->short))]
-      (if-let [[nt nd] (longest-run 0 shorts)]
-        (str (->str (take nt shorts)) "::" (->str (drop (+ nt nd) shorts)))
-        (->str shorts)))))
+    (let [octets (map ubyte bytes)
+          shorts (->> octets (partition 2) (map ->short))]
+      (if (and (every? zero? (take 10 octets))
+               (= [255 255] (vec (take 2 (drop 10 octets)))))
+        (str "::ffff:" (string-address-ipv4
+                        (byte-array (map sbyte (take-last 4 octets)))))
+        (if-let [[nt nd] (when-let [[nt nd] (longest-run 0 shorts)]
+                           (when (> nd 1) [nt nd]))]
+          (str (->str (take nt shorts)) "::" (->str (drop (+ nt nd) shorts)))
+          (->str shorts))))))
 
 (defn ^:private string-address
   [^bytes bytes]

@@ -23,6 +23,25 @@
     (let [addr "::2:2:1:1:1"]
       (is (= addr (-> addr ip/address str)) "No IPv6 elision-stomping"))))
 
+(deftest test-rfc-5952-ipv6-formatting
+  (testing "A single zero group is not compressed"
+    (is (= "2001:db8:0:1:1:1:1:1"
+           (str (ip/address "2001:db8:0:1:1:1:1:1")))))
+  (testing "IPv4-mapped IPv6 uses dotted-quad formatting"
+    (is (= "::ffff:192.168.1.1"
+           (str (ip/address "::ffff:192.168.1.1"))))
+    (is (= "::ffff:192.168.1.1/128"
+           (str (ip/network "::ffff:192.168.1.1")))))
+  (testing "Existing canonical forms remain unchanged"
+    (is (= "2001:0:0:1::1"
+           (str (ip/address "2001:0:0:1:0:0:0:1"))))
+    (is (= "::"
+           (str (ip/address "0:0:0:0:0:0:0:0"))))
+    (is (= "2001:db8::1"
+           (str (ip/address "2001:db8::1"))))
+    (is (= "2001:db8:0:1:1:1:1:1/128"
+           (str (ip/network "2001:db8:0:1:1:1:1:1"))))))
+
 (deftest test-network
   (testing "Creating networks"
     (testing "from IPv4 addresses"
