@@ -131,6 +131,15 @@
            (ip/address-networks "10.0.0.0" "10.0.1.1"))
         "Address range converted correctly to set of networks")))
 
+(deftest test-network-set-to-array-jdk-11
+  (let [expected [(ip/network "10.0.0.0/24")
+                 (ip/network "10.0.1.0/24")]
+        networks (ip/network-set "10.0.0.0/24" "10.0.1.0/24")]
+    (is (= expected (vec (.toArray networks))))
+    (is (= expected (vec (.toArray networks (into-array expected)))))
+    (is (= expected (vec networks)))
+    (is (= expected (into [] networks)))))
+
 (deftest test-network-set-edn
   (let [nets (ip/network-set "10.0.0.0/8" "192.168.0.0/16")]
     (is (= nets (-> nets pr-str read-string)))))

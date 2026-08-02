@@ -96,6 +96,15 @@
        (dns/domain-ancestors
         "foo\u002bar\u0000\ufffd\u00da\ufffd\ufffd"))))
 
+(deftest test-domain-set-to-array-jdk-11
+  (let [expected [(dns/domain "example.com")
+                 (dns/domain "example.net")]
+        domains (dns/domain-set "example.com" "example.net")]
+    (is (= expected (vec (.toArray domains))))
+    (is (= expected (vec (.toArray domains (into-array expected)))))
+    (is (= expected (vec domains)))
+    (is (= expected (into [] domains)))))
+
 (deftest test-domain-set-edn
   (let [doms (dns/domain-set "example.com" "example.net")]
     (is (= doms (-> doms pr-str read-string)))))
