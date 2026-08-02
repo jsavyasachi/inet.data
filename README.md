@@ -21,13 +21,13 @@ Inet.data is available on Clojars.
 Leiningen (`project.clj`):
 
 ```clj
-[net.clojars.savya/inet.data "0.7.5"]
+[net.clojars.savya/inet.data "0.8.0"]
 ```
 
 Clojure CLI (`deps.edn`):
 
 ```clj
-net.clojars.savya/inet.data {:mvn/version "0.7.5"}
+net.clojars.savya/inet.data {:mvn/version "0.8.0"}
 ```
 
 ## Building
@@ -38,8 +38,8 @@ changing the grammars. Do not hand-edit the generated Java files.
 
 ## Usage
 
-Currently inet.data includes support for IP addresses and networks and for DNS
-domain names.  Example usage follows; [detailed API
+Currently inet.data includes support for IP addresses and networks, DNS domain
+names, and reverse DNS domains. Example usage follows; [detailed API
 documentation](https://cljdoc.org/d/net.clojars.savya/inet.data) available.
 
 ### inet.data.ip
