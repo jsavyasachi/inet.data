@@ -12,7 +12,9 @@
 
 (deftest test-psl
   (letfn [(check-psl [dom exp]
-            (zero? (dns/domain-compare exp (psl/lookup dom))))]
+            (if (nil? exp)
+              (nil? (psl/lookup dom))
+              (zero? (dns/domain-compare exp (psl/lookup dom)))))]
     (testing "Tests from http://publicsuffix.org/list/test.txt"
       (testing "NULL input"
         (is (check-psl nil nil)))
@@ -98,5 +100,4 @@
       (is (zero? (dns/domain-compare
                   "blogspot.com"
                   (e2ld (load* {:sections #{:icann}}) "foo.blogspot.com")))))))
-
 

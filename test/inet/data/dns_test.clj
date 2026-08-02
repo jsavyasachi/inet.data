@@ -2,6 +2,31 @@
   (:require [inet.data.dns :as dns])
   (:use [clojure.test]))
 
+(deftest test-strict-domain-coercion-and-operations
+  (doseq [[f args]
+          [[dns/->domain ["bad..com"]]
+           [dns/->domain [nil]]
+           [dns/domain-compare ["bad..com" "example.com"]]
+           [dns/domain-compare [nil "example.com"]]
+           [dns/domain-contains? ["example.com" "bad..com"]]
+           [dns/domain-contains? [nil "example.com"]]
+           [dns/domain-subdomain? ["example.com" nil]]
+           [dns/domain-parent ["bad..com"]]
+           [dns/domain-ancestors ["bad..com"]]
+           [dns/domain-next ["bad..com"]]
+           [dns/domain-next ["example.com" nil]]]]
+    (is (thrown? inet.data.dns.DNSDomainException (apply f args))
+        (str f " rejects invalid input"))))
+
+(deftest test-strict-domain-operations-accept-direct-values
+  (let [domain (dns/domain "example.com")
+        bytes (byte-array [3 99 111 109 7 101 120 97 109 112 108 101])]
+    (doseq [value [domain bytes "example.com"]]
+      (is (dns/domain? (dns/->domain value))))
+    (is (zero? (dns/domain-compare domain bytes)))
+    (is (dns/domain-contains? domain (dns/domain "www.example.com")))
+    (is (= (dns/domain "com") (dns/domain-parent domain)))))
+
 (deftest test-domain?
   (testing "String domains"
     (is (dns/domain? "www.foobar.com") "Accepts valid string domains")
@@ -35,7 +60,7 @@
       (is (= 0 (compare (dns/domain "example.com")
                         (dns/domain "example.com")))))
     (let [dom (dns/domain "example.com")]
-      (is (not= 0 (dns/domain-compare dom (dns/domain-next dom nil)))
+      (is (not= 0 (dns/domain-compare dom (dns/domain-next dom)))
           "Differing domains do not compare as equal")
       (is (= 0 (dns/domain-compare dom (dns/domain-next dom "com")))
           "Equal derived domains do compare as equal"))
@@ -48,8 +73,9 @@
           "Case-differing domains are not equal"))))
 
 (deftest test-domain-contains?
-  (is (dns/domain-contains? nil "example.com")
-      "Root domain contains everything")
+  (is (thrown? inet.data.dns.DNSDomainException
+               (dns/domain-contains? nil "example.com"))
+      "Nil is rejected by strict operation entry points")
   (is (dns/domain-contains? "com" "com") "Domain contains itself")
   (is (dns/domain-contains? "com" "example.com") "TLD contains immediate child")
   (is (dns/domain-contains? "com" "www.example.com") "TLD contains descendent")
@@ -59,8 +85,9 @@
       "Domain does not contain purely lexicographic suffix"))
 
 (deftest test-domain-subdomain?
-  (is (dns/domain-subdomain? nil "example.com")
-      "Root domains has everything as a subdomain")
+  (is (thrown? inet.data.dns.DNSDomainException
+               (dns/domain-subdomain? nil "example.com"))
+      "Nil is rejected by strict operation entry points")
   (is (not (dns/domain-subdomain? "com" "com"))
       "Domain is not a subdomain of self")
   (is (dns/domain-subdomain? "com" "example.com")
@@ -92,9 +119,9 @@
 (deftest test-domain-ancestors
   (is (= (map dns/domain ["com" "foo.com" "bar.foo.com"])
          (dns/domain-ancestors "bar.foo.com")))
-  (is (empty?
-       (dns/domain-ancestors
-        "foo\u002bar\u0000\ufffd\u00da\ufffd\ufffd"))))
+  (is (thrown? inet.data.dns.DNSDomainException
+               (dns/domain-ancestors
+                "foo\u002bar\u0000\ufffd\u00da\ufffd\ufffd"))))
 
 (deftest test-domain-set-to-array-jdk-11
   (let [expected [(dns/domain "example.com")

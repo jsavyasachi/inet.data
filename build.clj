@@ -10,7 +10,7 @@
             [deps-deploy.deps-deploy :as dd]))
 
 (def lib 'net.clojars.savya/inet.data)
-(def version "0.8.0")
+(def version "1.0.0")
 (def class-dir "target/classes")
 (def basis (delay (b/create-basis {:project "deps.edn"})))
 (def jar-file (format "target/%s-%s.jar" (name lib) version))

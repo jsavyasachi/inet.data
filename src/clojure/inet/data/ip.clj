@@ -5,7 +5,7 @@
                                     bytes-hash-code doto-let]]
             [hier-set.core :refer [hier-set-by]])
   (:import [clojure.lang IFn IObj ILookup BigInt Indexed Seqable]
-           [inet.data.ip IPParser IPNetworkComparison]
+           [inet.data.ip IPParser IPNetworkComparison IPException IPAddressException IPNetworkException]
            [java.io Serializable]
            [java.util Arrays]
            [java.net InetAddress]))
@@ -107,6 +107,20 @@
   {:tag `IPAddress}
   [addr] (-address addr))
 
+(defn ->address
+  "Coerce `addr` to an IPAddress, throwing when it cannot be interpreted."
+  {:tag `IPAddress}
+  [addr]
+  (try
+    (or (address addr)
+        (throw (IPAddressException.
+                (format "Cannot interpret %s as an IP address." (pr-str addr)))))
+    (catch IPException e
+      (throw e))
+    (catch Exception e
+      (throw (IPAddressException.
+              (format "Cannot interpret %s as an IP address." (pr-str addr)) e)))))
+
 ;; BigInteger mapping is internal-only.  BigInteger doesn't preserve the input
 ;; byte-array size, so we need to prepend a pseudo-magic prefix to retain the
 ;; address length.
@@ -121,20 +135,23 @@
   [addr n]
   (->> (condp instance? n
          BigInteger n
-         BigInt     (.toBigInteger ^BigInt n)
+       BigInt     (.toBigInteger ^BigInt n)
          ,,,,,,     (BigInteger/valueOf (long n)))
-       (.add (address->BigInteger addr))
-       address))
+       (.add (address->BigInteger (->address addr)))
+       ->address))
 
 (defn address-range
   "Sequence of addresses from `start` to `stop` *inclusive*."
   [start stop]
-  (let [stop (address->BigInteger stop)]
+  (let [start (->address start)
+        stop (address->BigInteger (->address stop))]
     ((fn step [^BigInteger addr]
        (lazy-seq
         (when-not (pos? (.compareTo addr stop))
           (cons (address addr) (step (.add addr BigInteger/ONE))))))
      (address->BigInteger start))))
+
+(declare ->network)
 
 (defn network-compare
   "Compare the prefixes of networks `left` and `right`, with the same result
@@ -144,21 +161,26 @@ be returned as long as the networks are identical up to their minimum common
 prefix length."
   (^long [left right] (network-compare true left right))
   (^long [stable left right]
-     (let [^bytes prefix1 (address-bytes left), plen1 (network-length left)
+     (let [left (->network left)
+           right (->network right)
+           ^bytes prefix1 (address-bytes left), plen1 (network-length left)
            ^bytes prefix2 (address-bytes right), plen2 (network-length right)]
        (IPNetworkComparison/networkCompare stable prefix1 plen1 prefix2 plen2))))
 
 (defn network-contains?
   "Determine if network `net` contains the address/network `addr`."
   [net addr]
-  (let [length (network-length net)]
+  (let [net (->network net)
+        addr (->network addr)
+        length (network-length net)]
     (and (<= length (network-length addr))
          (zero? (network-compare false net addr)))))
 
 (defn network-count
   "Count of addresses in network `net`."
   [net]
-  (let [nbits (- (address-length net) (network-length net))]
+  (let [net (->network net)
+        nbits (- (address-length net) (network-length net))]
     (if (> 63 nbits)
       (bit-shift-left 1 nbits)
       (BigInt/fromBigInteger (.shiftLeft BigInteger/ONE nbits)))))
@@ -166,7 +188,8 @@ prefix length."
 (defn network-nth
   "The `n`th address in the network `net`.  Negative `n`s count backwards
 from the final address at -1."
-  [net n] (address-add net (if (neg? n) (+ n (network-count net)) n)))
+  [net n] (let [net (->network net)]
+            (address-add net (if (neg? n) (+ n (network-count net)) n))))
 
 (deftype IPNetwork [meta, ^bytes prefix, ^long length]
   Serializable
@@ -232,6 +255,20 @@ from the final address at -1."
   ([net] (-network net))
   ([prefix length] (-network prefix length)))
 
+(defn ->network
+  "Coerce `net` to an IPNetwork, throwing when it cannot be interpreted."
+  {:tag `IPNetwork}
+  [net]
+  (try
+    (or (network net)
+        (throw (IPNetworkException.
+                (format "Cannot interpret %s as an IP network." (pr-str net)))))
+    (catch IPException e
+      (throw e))
+    (catch Exception e
+      (throw (IPNetworkException.
+              (format "Cannot interpret %s as an IP network." (pr-str net)) e)))))
+
 (defn ^:private network*
   [orig ^bytes bytes ^long length]
   (when (network?* bytes length)
@@ -254,7 +291,8 @@ from the final address at -1."
 (defn inet-address
   "Generate a java.net.InetAddress from the provided value."
   {:tag `InetAddress}
-  [addr] (InetAddress/getByAddress (address-bytes addr)))
+  [addr] (let [addr (->address addr)]
+            (InetAddress/getByAddress (address-bytes addr))))
 
 (defn network-trunc
   "Create a network with a prefix consisting of the first `length` bits of
@@ -263,7 +301,8 @@ from the final address at -1."
   ([prefix]
      (network-trunc prefix (network-length prefix)))
   ([prefix length]
-     (network (doto-let [prefix (byte-array (address-bytes prefix))]
+     (let [prefix (->address prefix)]
+       (network (doto-let [prefix (byte-array (address-bytes prefix))]
                 (loop [zbits (long (- (address-length prefix) length)),
                        i (->> prefix alength dec long)]
                   (cond (>= zbits 8) (do (aset prefix i (byte 0))
@@ -271,7 +310,7 @@ from the final address at -1."
                         (pos? zbits) (->> (bit-shift-left -1 zbits)
                                           (bit-and (long (aget prefix i)))
                                           byte (aset prefix i)))))
-              length)))
+                length))))
 
 (defn ->network-set
   "Create a hierarchical set from networks in `coll`."
@@ -299,7 +338,8 @@ from the final address at -1."
 default 1."
   ([net] (network-supernet net 1))
   ([net n]
-     (let [pbits (- (network-length net) n)]
+     (let [net (->network net)
+           pbits (- (network-length net) n)]
        (when-not (neg? pbits)
          (network-trunc net pbits)))))
 
@@ -308,7 +348,8 @@ default 1."
 network prefix, default 1."
   ([net] (network-subnets net 1))
   ([net n]
-     (let [pbits (+ (network-length net) n)
+     (let [net (->network net)
+           pbits (+ (network-length net) n)
            nbits (- (address-length net) pbits)
            one (.shiftLeft BigInteger/ONE nbits)
            lower (address->BigInteger net)
@@ -327,7 +368,8 @@ network prefix, default 1."
   "Minimal set of networks containing only the addresses in the range from
 `start` to `stop` *inclusive*."
   [start stop]
-  (let [stop (address stop)
+  (let [start (->address start)
+        stop (->address stop)
         nnet (fn [net]
                (let [net' (network-supernet net)]
                  (if (or (nil? net')
@@ -342,7 +384,7 @@ network prefix, default 1."
                         start' (address-add net (network-count net))]
                     (cons net (when-not (address-zero? start')
                                 (step start')))))))]
-    (apply network-set (step (address start)))))
+    (apply network-set (step start))))
 
 (defn- aggregate-input-network
   [value]
@@ -501,7 +543,15 @@ network prefix, default 1."
          (network?* prefix length))))
   (network-length [this]
     (let [[_ length] (string-network-parts this)]
-      (or length (address-length this)))))
+      (if-let [prefix (first (string-network-parts this))]
+        (let [address-length (address-length prefix)
+              length (or length address-length)]
+          (if (<= 0 length address-length)
+            length
+            (throw (IPNetworkException.
+                    (format "Cannot interpret %s as an IP network." (pr-str this))))))
+        (throw (IPNetworkException.
+                (format "Cannot interpret %s as an IP network." (pr-str this))))))))
 
 (extend-type InetAddress
   IPAddressConstruction
@@ -555,6 +605,14 @@ network prefix, default 1."
     ([this] false)
     ([this length] (network?* (address-bytes this) length)))
   (network-length [this] (address-length this)))
+
+(extend-type nil
+  IPNetworkOperations
+  (network?*
+    ([_] false)
+    ([_ _] false))
+  (network-length [_]
+    (throw (IPNetworkException. "Cannot interpret nil as an IP network."))))
 
 (def ^:private special-use-blocks
   {:this-network (network "0.0.0.0/8")

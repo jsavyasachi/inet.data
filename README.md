@@ -21,13 +21,13 @@ Inet.data is available on Clojars.
 Leiningen (`project.clj`):
 
 ```clj
-[net.clojars.savya/inet.data "0.8.0"]
+[net.clojars.savya/inet.data "1.0.0"]
 ```
 
 Clojure CLI (`deps.edn`):
 
 ```clj
-net.clojars.savya/inet.data {:mvn/version "0.8.0"}
+net.clojars.savya/inet.data {:mvn/version "1.0.0"}
 ```
 
 ## Building
@@ -81,6 +81,16 @@ is also implemented for strings, byte arrays, and `java.net.InetAddress`.
 (ip/aggregate-networks ["10.0.0.0/24" "10.0.1.0/24"])
 ;;=> #{#ip/network "10.0.0.0/23"}
 ```
+
+Parsing has two deliberate modes. The `address`, `network`, and `domain`
+constructors, along with their predicate forms, are lenient: malformed input
+returns `nil` or `false`. Operations that need a parsed value use strict
+coercion and throw `IPAddressException`, `IPNetworkException`, or
+`DNSDomainException` when input cannot be interpreted. Use `address?`,
+`network?`, or `domain?` when testing input instead of asserting that it is
+valid. `aggregate-networks` and the ARPA conversion functions remain lenient
+filtering and conversion APIs and return their documented empty or `nil`
+results for malformed input.
 
 ### inet.data.dns
 

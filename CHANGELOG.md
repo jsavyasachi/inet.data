@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0] - 2026-08-01
+
+### BREAKING
+- Operations now throw typed exceptions when input cannot be interpreted as
+  an address, network, or domain, where they previously could produce
+  meaningless results. Use the lenient `address?`, `network?`, and `domain?`
+  predicates when callers need to test input rather than assert validity.
+- Added strict `->address`, `->network`, and `->domain` coercion functions.
+- `aggregate-networks` and ARPA conversions remain lenient: malformed values
+  are skipped or return `nil` according to their existing contracts.
+
 ## [0.8.0] - 2026-08-01
 
 ### Added

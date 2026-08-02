@@ -18,7 +18,7 @@ given domain."
                                     bytes-hash-code]]
             [hier-set.core :refer [hier-set-by]])
   (:import [clojure.lang IFn ILookup IObj]
-           [inet.data.dns DNSDomainParser DNSDomainComparison]
+           [inet.data.dns DNSDomainParser DNSDomainComparison DNSDomainException]
            [java.io Serializable]
            [java.util Arrays]
            [java.net IDN]))
@@ -50,6 +50,14 @@ sequence of bytes."
   [dom] (and (satisfies? DNSDomainOperations dom)
              (boolean (-domain? dom))))
 
+(declare ->domain)
+
+(defn- domain-compare*
+  [stable left right]
+  (let [bytes1 (domain-bytes left), len1 (domain-length left)
+        bytes2 (domain-bytes right), len2 (domain-length right)]
+    (DNSDomainComparison/domainCompare stable bytes1 len1 bytes2 len2)))
+
 (defn domain-compare
   "Compare two domains, with the same result semantics as `compare`.  When
 `stable` is true (the default), 0 will only be returned when the domains are
@@ -58,29 +66,42 @@ networks are identical up to their minimum common full-label length.  Domain
 comparison always occurs in a case-independent fashion."
   (^long [left right] (domain-compare true left right))
   (^long [stable left right]
-     (let [bytes1 (domain-bytes left), len1 (domain-length left)
-           bytes2 (domain-bytes right), len2 (domain-length right)]
-       (DNSDomainComparison/domainCompare stable bytes1 len1 bytes2 len2))))
+     (let [left (->domain left)
+           right (->domain right)]
+       (domain-compare* stable left right))))
 
 (defn domain-contains?
   "Determine if the domain `child` is a subdomain of or identical to the domain
 `parent`."
   [parent child]
-  (and (<= (domain-length parent) (domain-length child))
-       (zero? (domain-compare false parent child))))
+  (let [parent (->domain parent)
+        child (->domain child)]
+    (and (<= (domain-length parent) (domain-length child))
+       (zero? (domain-compare false parent child)))))
 
 (defn domain-subdomain?
   "Determine if the domain `child` is a subdomain of the domain `parent`."
   [parent child]
-  (and (< (domain-length parent) (domain-length child))
-       (zero? (domain-compare false parent child))))
+  (let [parent (->domain parent)
+        child (->domain child)]
+    (and (< (domain-length parent) (domain-length child))
+       (zero? (domain-compare false parent child)))))
 
 (defn ->domain-set
   "Create a hierarchical set from domains in `coll`."
   [coll]
-  (-> (apply hier-set-by domain-contains? domain-compare
+  (letfn [(domain-contains-for-set
+            [parent child]
+            (let [parent (domain parent), child (domain child)]
+              (and (<= (domain-length parent) (domain-length child))
+                   (zero? (domain-compare* false parent child)))))
+          (domain-compare-for-set
+            ([left right] (domain-compare-for-set true left right))
+            ([stable left right]
+             (domain-compare* stable (domain left) (domain right))))]
+    (-> (apply hier-set-by domain-contains-for-set domain-compare-for-set
              (map domain coll))
-      (vary-meta assoc :type ::domain-set)))
+        (vary-meta assoc :type ::domain-set))))
 
 (defn domain-set
   "Create a hierarchical set from domains `doms`."
@@ -211,6 +232,22 @@ standard string form."
   {:tag `DNSDomain}
   [dom] (-domain dom))
 
+(defn ->domain
+  "Coerce `dom` to a DNSDomain, throwing when it cannot be interpreted."
+  {:tag `DNSDomain}
+  [dom]
+  (try
+    (if (nil? dom)
+      (throw (DNSDomainException. "Cannot interpret nil as a DNS domain."))
+      (or (domain dom)
+          (throw (DNSDomainException.
+                  (format "Cannot interpret %s as a DNS domain." (pr-str dom))))))
+    (catch DNSDomainException e
+      (throw e))
+    (catch Exception e
+      (throw (DNSDomainException.
+              (format "Cannot interpret %s as a DNS domain." (pr-str dom)) e)))))
+
 (defn ^:private domain*
   "Private bytes->domain factory."
   [orig ^bytes bytes]
@@ -222,9 +259,11 @@ standard string form."
 immediate child domain of `parent` which is either identical to `child` or also
 a parent domain of `child`.  Returns `nil` if there is no such domain.  Uses
 the implied empty root domain as `parent` if not provided."
-  ([child] (domain-next child nil))
+  ([child] (domain-next child root-domain))
   ([child parent]
-     (let [^bytes bytes (domain-bytes child), length (domain-length parent)]
+     (let [child (->domain child)
+           parent (->domain parent)
+           ^bytes bytes (domain-bytes child), length (domain-length parent)]
        (when (< length (domain-length child))
          (DNSDomain. nil bytes (+ length (ubyte (aget bytes length)) 1))))))
 
@@ -233,15 +272,18 @@ the implied empty root domain as `parent` if not provided."
 is a proper subdomain, starting with the domain after `parent` and ending with
 the domain itself.  Uses the implied empty root domain as `parent` if not
 provided."
-  ([child] (domain-ancestors child nil))
+  ([child] (domain-ancestors child root-domain))
   ([child parent]
-     (->> (iterate #(domain-next child %) parent) (drop 1)
-          (take-while identity))))
+     (let [child (->domain child)
+           parent (->domain parent)]
+       (->> (iterate #(domain-next child %) parent) (drop 1)
+          (take-while identity)))))
 
 (defn domain-parent
   "Return the domain for which `dom` is an immediate sub-domain."
   [dom]
-  (let [bytes (domain-bytes dom), total (domain-length dom)]
+  (let [dom (->domain dom)
+        bytes (domain-bytes dom), total (domain-length dom)]
     (when (pos? total)
       (let [length (loop [length (long 0)]
                      (let [length' (+ 1 length (long (aget ^bytes bytes length)))]

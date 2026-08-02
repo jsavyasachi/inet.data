@@ -1,7 +1,54 @@
 (ns inet.data.ip-test
   (:require [inet.data.ip :as ip])
   (:use [clojure.test])
-  (:import [java.net InetAddress]))
+  (:import [java.net InetAddress]
+           [inet.data.ip IPException]))
+
+(deftest test-strict-network-operations-reject-invalid-input
+  (is (thrown? IPException
+               (ip/network-contains? "abx-@" "abx-@"))))
+
+(deftest test-strict-ip-coercion-and-operations
+  (doseq [[f args]
+          [[ip/->address ["abx-@"]]
+           [ip/->address [nil]]
+           [ip/->network ["abx-@"]]
+           [ip/->network [nil]]
+           [ip/network-compare ["abx-@" "10.0.0.1"]]
+           [ip/network-compare [nil "10.0.0.1"]]
+           [ip/network-contains? ["10.0.0.0/8" "abx-@"]]
+           [ip/network-contains? [nil "10.0.0.1"]]
+           [ip/network-count ["abx-@"]]
+           [ip/network-count [nil]]
+           [ip/network-nth ["abx-@" 0]]
+           [ip/network-length ["abx-@"]]
+           [ip/network-length [nil]]
+           [ip/network-trunc ["abx-@"]]
+           [ip/network-supernet ["abx-@"]]
+           [ip/network-subnets ["abx-@"]]
+           [ip/address-add ["abx-@" 1]]
+           [ip/address-add [nil 1]]
+           [ip/address-range ["abx-@" "10.0.0.1"]]
+           [ip/address-networks ["abx-@" "10.0.0.1"]]
+           [ip/inet-address ["abx-@"]]]]
+    (is (thrown? IPException (apply f args))
+        (str f " rejects invalid input"))))
+
+(deftest test-strict-ip-operations-accept-direct-values
+  (let [address (ip/address "10.0.0.1")
+        network (ip/network "10.0.0.0/24")
+        inet (InetAddress/getByName "10.0.0.1")
+        bytes (.getAddress inet)]
+    (doseq [value [address network inet bytes "10.0.0.1"]]
+      (is (ip/address? (ip/->address value)))
+      (is (ip/network? (ip/->network value))))
+    (is (ip/network-contains? network address))
+    (is (zero? (ip/network-compare false network (ip/->network bytes))))
+    (is (= address (ip/address-add bytes 0)))
+    (is (= address (ip/address-add inet 0)))
+    (is (= 24 (ip/network-length network)))
+    (is (= 32 (ip/network-length bytes)))
+    (is (= inet (ip/inet-address address)))))
 
 (deftest test-address-validation
   (testing "Validation"

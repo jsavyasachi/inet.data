@@ -51,6 +51,10 @@ jobs:
             echo "::error::README.md is missing install coordinate: $LIB {:mvn/version \"$TAG\"}"
             exit 1
           fi
+          if ! grep -qF "[$LIB \"$TAG\"]" README.md; then
+            echo "::error::README.md is missing install coordinate: [$LIB \"$TAG\"]"
+            exit 1
+          fi
 
       - name: Test
         run: |
