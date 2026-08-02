@@ -30,6 +30,12 @@ Clojure CLI (`deps.edn`):
 net.clojars.savya/inet.data {:mvn/version "0.7.5"}
 ```
 
+## Building
+
+The Java parsers are generated from the Ragel grammars under `src/ragel`.
+Run `clojure -T:build ragel` to regenerate them. Ragel is only needed when
+changing the grammars. Do not hand-edit the generated Java files.
+
 ## Usage
 
 Currently inet.data includes support for IP addresses and networks and for DNS

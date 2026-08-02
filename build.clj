@@ -3,6 +3,7 @@
 
    Usage:
      clojure -T:build compile-java   ; javac src/java -> target/classes (needed before tests)
+     clojure -T:build ragel          ; regenerate Java parsers from src/ragel
      clojure -T:build jar
      clojure -T:build deploy         ; needs CLOJARS_USERNAME / CLOJARS_PASSWORD"
   (:require [clojure.tools.build.api :as b]
@@ -26,6 +27,15 @@
             :class-dir class-dir
             :basis @basis
             :javac-opts ["-target" "8" "-source" "8" "-Xlint:-options"]}))
+
+(defn ragel
+  "Regenerate the Java parsers from their Ragel grammars."
+  [_]
+  (doseq [[output input] [["src/java/inet/data/ip/IPParser.java"
+                           "src/ragel/inet/data/ip/IPParser.java.rl"]
+                          ["src/java/inet/data/dns/DNSDomainParser.java"
+                           "src/ragel/inet/data/dns/DNSDomainParser.java.rl"]]]
+    (b/process {:command-args ["ragel" "-J" "-o" output input]})))
 
 (defn jar [_]
   (clean nil)
