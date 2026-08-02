@@ -71,6 +71,9 @@ is also implemented for strings, byte arrays, and `java.net.InetAddress`.
 (ip/address-networks "192.168.0.0" "192.168.0.4")
 ;;=> #{#ip/network "192.168.0.0/30"
 ;;     #ip/network "192.168.0.4/32"}
+
+(ip/aggregate-networks ["10.0.0.0/24" "10.0.1.0/24"])
+;;=> #{#ip/network "10.0.0.0/23"}
 ```
 
 ### inet.data.dns

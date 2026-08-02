@@ -165,6 +165,58 @@
     (is (= (ip/network-set "2001:db8::/126")
            (ip/address-networks "2001:db8::" "2001:db8::3")))))
 
+(defn aggregate-networks
+  [nets]
+  (if-let [aggregate (ns-resolve 'inet.data.ip 'aggregate-networks)]
+    (aggregate nets)
+    ::missing))
+
+(defn covered-addresses
+  [nets]
+  (set (mapcat seq nets)))
+
+(deftest test-aggregate-networks
+  (testing "absorbs networks contained by another"
+    (is (= (ip/network-set "10.0.0.0/8")
+           (aggregate-networks ["10.0.0.0/8" "10.1.0.0/16"]))))
+  (testing "merges adjacent siblings"
+    (is (= (ip/network-set "10.0.0.0/23")
+           (aggregate-networks ["10.0.0.0/24" "10.0.1.0/24"]))))
+  (testing "repeats sibling merges to a fixpoint"
+    (is (= (ip/network-set "10.0.0.0/22")
+           (aggregate-networks ["10.0.0.0/24" "10.0.1.0/24"
+                                "10.0.2.0/24" "10.0.3.0/24"]))))
+  (testing "does not merge non-adjacent networks"
+    (is (= (ip/network-set "10.0.0.0/24" "10.0.2.0/24")
+           (aggregate-networks ["10.0.2.0/24" "10.0.0.0/24"]))))
+  (testing "aggregates IPv4 and IPv6 independently"
+    (is (= (ip/network-set "10.0.0.0/23" "2001:db8::/127")
+           (aggregate-networks ["2001:db8::/128" "10.0.0.0/24"
+                                "10.0.1.0/24" "2001:db8::1/128"]))))
+  (testing "treats bare addresses as host networks"
+    (is (= (ip/network-set "192.0.2.0/31")
+           (aggregate-networks ["192.0.2.1" "192.0.2.0"])))
+    (is (= (ip/network-set "2001:db8::/127")
+           (aggregate-networks [(ip/address "2001:db8::")
+                                (ip/address "2001:db8::1")]))))
+  (testing "deduplicates and accepts unsorted input"
+    (is (= (ip/network-set "10.0.0.0/23")
+           (aggregate-networks ["10.0.1.0/24" "10.0.0.0/24"
+                                "10.0.0.0/24"]))))
+  (testing "empty input returns an empty network set"
+    (is (= (ip/network-set) (aggregate-networks []))))
+  (testing "skips malformed entries"
+    (is (= (ip/network-set "10.0.0.0/24")
+           (aggregate-networks ["not-an-address" nil "10.0.0.0/24"]))))
+  (testing "output covers exactly the input space"
+    (doseq [inputs [["192.0.2.0/30" "192.0.2.4/30" "192.0.2.8/32"]
+                    ["192.0.2.1" "192.0.2.2" "192.0.2.7"]
+                    ["2001:db8::/126" "2001:db8::4/127" "2001:db8::7"]
+                    ["10.0.0.0/28" "10.0.0.16/29" "10.0.0.24/30"]]]
+      (is (= (covered-addresses (map ip/network inputs))
+             (covered-addresses (aggregate-networks inputs)))
+          (str "coverage for " inputs)))))
+
 (deftest test-special-use-blocks
   (let [blocks {:this-network ["0.0.0.0" "0.0.0.0" "0.255.255.255"]
                 :private ["10.0.0.1" "10.0.0.0" "10.255.255.255"]

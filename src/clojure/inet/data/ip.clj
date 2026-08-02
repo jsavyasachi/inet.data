@@ -344,6 +344,50 @@ network prefix, default 1."
                                 (step start')))))))]
     (apply network-set (step (address start)))))
 
+(defn- aggregate-input-network
+  [value]
+  (try
+    (network value)
+    (catch IllegalArgumentException _
+      nil)))
+
+(defn- absorb-networks
+  [nets]
+  (reduce (fn [kept net]
+            (if (some #(network-contains? % net) kept)
+              kept
+              (conj (vec (remove #(network-contains? net %) kept)) net)))
+          []
+          (sort network-compare nets)))
+
+(defn- merge-network-siblings
+  [nets]
+  (mapcat (fn [[supernet siblings]]
+            (if (and supernet (= 2 (count siblings)))
+              [(network-supernet (first siblings))]
+              siblings))
+          (group-by #(when (pos? (network-length %))
+                       (network-supernet %))
+                    nets)))
+
+(defn aggregate-networks
+  "Return a minimal, ascending `network-set` covering `values` exactly.
+
+  Values may be addresses or networks, and bare addresses become host
+  networks. IPv4 and IPv6 values are aggregated independently. Invalid or
+  unsupported values are skipped, like invalid values rejected by the
+  namespace's address and network predicates."
+  [values]
+  (let [nets (->> values
+                  (keep aggregate-input-network)
+                  distinct
+                  absorb-networks)]
+    (loop [nets nets]
+      (let [merged (-> nets merge-network-siblings absorb-networks)]
+        (if (= (set nets) (set merged))
+          (apply network-set nets)
+          (recur merged))))))
+
 (extend-type IPAddress
   IPAddressConstruction
   (-address [this] this)
