@@ -1,8 +1,8 @@
 (ns inet.data.arpa
   "Conversion between IP addresses or networks and reverse-DNS domains.
 
-This namespace is the bridge between `inet.data.ip` and `inet.data.dns`;
-neither namespace depends on the other."
+This namespace connects `inet.data.ip` and `inet.data.dns`. Neither namespace
+depends on the other."
   (:require [clojure.string :as str]
             [inet.data.dns :as dns]
             [inet.data.ip :as ip]))
@@ -35,12 +35,12 @@ neither namespace depends on the other."
 (defn ip->domain
   "Return the reverse-DNS `dns/domain` for IP address or network `value`.
 
-  IPv4 networks are supported only at octet-aligned prefixes, and IPv6
-  networks only at nibble-aligned prefixes. Non-aligned prefixes return `nil`;
-  RFC 2317 classless IPv4 delegation is intentionally not implemented here.
-  IPv4-mapped IPv6 values are treated as IPv6 values and produce `ip6.arpa`
-  names. Malformed input returns `nil`, following the non-exceptional behavior
-  of `ip/address?` and `dns/domain?`."
+  This function supports IPv4 networks only at octet-aligned prefixes, and
+  IPv6 networks only at nibble-aligned prefixes. Non-aligned prefixes return
+  `nil`. This function deliberately does not implement RFC 2317 classless IPv4
+  delegation. It treats IPv4-mapped IPv6 values as IPv6 values and returns
+  `ip6.arpa` names. Malformed input returns `nil`, the same as the
+  non-exceptional behavior of `ip/address?` and `dns/domain?`."
   [value]
   (try
     (let [network? (ip/network? value)
@@ -105,10 +105,10 @@ neither namespace depends on the other."
 (defn domain->ip
   "Return an IP address or network represented by reverse-DNS `value`.
 
-  `in-addr.arpa` names are interpreted at octet granularity and `ip6.arpa`
-  names at nibble granularity. Suffix matching is case-insensitive and one
-  trailing dot is accepted. Malformed input returns `nil`. IPv4-mapped IPv6
-  names remain IPv6 and therefore return an `ip6.arpa` result."
+  This function reads `in-addr.arpa` names at octet granularity and `ip6.arpa`
+  names at nibble granularity. Suffix matching ignores case. The function
+  accepts one trailing dot. Malformed input returns `nil`. IPv4-mapped IPv6
+  names stay IPv6 and therefore give an `ip6.arpa` result."
   [value]
   (try
     (when (or (string? value) (dns/domain? value))

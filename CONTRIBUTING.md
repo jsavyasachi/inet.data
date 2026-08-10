@@ -5,25 +5,24 @@ focused feature contributions are all welcome.
 
 ## Before you start
 
-- For anything beyond a trivial fix, **open an issue first** so we can agree on
-  the approach before you invest time.
-- Check existing issues and pull requests to avoid duplicate work.
+- For a change that is more than a trivial fix, **open an issue first**. This
+  lets us agree on the approach before you spend time on it.
+- Read the existing issues and pull requests to prevent duplicate work.
 
 ## Development
 
-This is a Clojure library. You need a JDK and [Leiningen](https://leiningen.org/)
-(projects that have migrated to `deps.edn` use the Clojure CLI instead — see the
-README).
+This is a Clojure library. You need a JDK and [Leiningen](https://leiningen.org/).
+Projects that moved to `deps.edn` use the Clojure CLI instead: see the README.
 
 ```bash
 lein test     # run the test suite
 lein check    # AOT-compile; must be free of reflection warnings
 ```
 
-The bar for a mergeable change:
+A change is mergeable when it obeys these rules:
 
-- **Tests first.** Add or update tests for the behavior you change; for a bug
-  fix, include a regression test that fails before your fix and passes after.
+- **Tests first.** Add or update tests for the behavior you change. For a bug
+  fix, add a regression test that fails before your fix and passes after it.
 - **Green build.** `lein test` passes and `lein check` reports **zero**
   reflection warnings.
 - **No scope creep.** Keep each pull request to one logical change.

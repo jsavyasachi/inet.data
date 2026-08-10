@@ -1,17 +1,14 @@
 (ns inet.data.format.psl
-  "Functions for interfacing with Mozilla Public Suffix List format files.
+  "Functions to use Mozilla Public Suffix List format files.
 
-The supported format is an extended version of the PSL format.  There are two
-differences:
+The supported format extends the PSL format. It has these differences:
 
- - Lines beginning with `#` are considered to be comments in addition to lines
-   beginning with `//`.
+- Lines that begin with `#` are comments. Lines that begin with `//` are also
+  comments.
 
- - Supports a new \"dynamic\" rule type, indicated by prefixing a domain with a
-   `+` character.  Dynamic rules act as per normal rules, unless the lookup
-   domain is identical to the suffix domain.  In that that case, the lookup
-   falls through to the next matching rule instead of terminating with a null
-   result.
+- A `+` before a domain indicates a \"dynamic\" rule. Dynamic rules act as
+  normal rules unless the lookup domain is identical to the suffix domain. In
+  this case, the lookup continues with the next matching rule.
 
 See the tests for examples."
   (:refer-clojure :exclude [load])
@@ -27,13 +24,12 @@ See the tests for examples."
 (defn load
   "Load a Mozilla Public Suffix List format file from the Reader `source`.
 
-  The optional `opts` map supports:
+  The optional `opts` map has this option:
 
-   - `:sections` - a set drawn from `#{:icann :private}` selecting which
-     sections of the list to include. The PSL is partitioned by the
-     `// ===BEGIN ICANN DOMAINS===` and `// ===BEGIN PRIVATE DOMAINS===` marker
-     comments; pass `#{:icann}` to ignore the user-contributed PRIVATE section.
-     Defaults to both sections (the historical behavior)."
+  - `:sections`: A set from `#{:icann :private}`. It selects sections of the
+    list to include. The PSL has the `// ===BEGIN ICANN DOMAINS===` and
+    `// ===BEGIN PRIVATE DOMAINS===` marker comments. Pass `#{:icann}` to
+    ignore the user-contributed PRIVATE section. The default has both sections."
   ([source] (load source nil))
   ([source {:keys [sections] :or {sections #{:icann :private}}}]
    (letfn [(prefix? [^String s1 ^String s2] (.startsWith s2 s1))
@@ -51,8 +47,8 @@ See the tests for examples."
                "."  (convert entry 1 :normal)
                "+"  (convert entry 1 :dynamic)
                ,,,  (convert entry 0 :normal)))
-           ;; Track the current section; entries before any marker count as
-           ;; ICANN (the list opens with the ICANN section after its license).
+           ;; Track the current section. Entries before a marker count as
+           ;; ICANN. The list starts with the ICANN section after its license.
            (step [{:keys [section prefixes rules] :as acc} entry]
              (if-let [m (marker entry)]
                (assoc acc :section m)
@@ -75,9 +71,9 @@ See the tests for examples."
        (load source)))))
 
 (defn lookup
-  "Determine the E2LD of `domain` as specified by the PSL loaded in `psl`.
-Uses the default PSL loaded from `*default-psl-url*` if `psl` is not provided.
-Returns `nil` if the domain does not match the provided PSL."
+  "Determine the E2LD of `domain` from the PSL in `psl`. Use the default PSL
+from `*default-psl-url*` if `psl` is not supplied. Return `nil` if `domain`
+does not match `psl`."
   ([dom] (lookup (memo-load *default-psl-url*) dom))
   ([psl dom]
      (let [dom (dns/domain dom), [prefixes rules] psl,

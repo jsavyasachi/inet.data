@@ -62,7 +62,7 @@
       (is (= false (ip/address? "17::18::ae")) "invalid, numeric"))))
 
 (deftest test-address-roundtrip
-  (testing "Round-tripping"
+  (testing "Round trip"
     (let [addr "172.12.16.1"]
       (is (= addr (-> addr ip/address str)) "IPv4 address strings"))
     (let [addr "fe:1100::1"]
@@ -113,7 +113,7 @@
       (is (= addr (ip/address (str addr))) literal))))
 
 (deftest test-network
-  (testing "Creating networks"
+  (testing "Create networks"
     (testing "from IPv4 addresses"
       (let [addr-str   "192.168.0.0"
             addr-obj   (InetAddress/getByName addr-str)
@@ -140,7 +140,7 @@
               (format "From %s with explicit prefix-length." src)))))))
 
 (deftest test-network-trunc
-  (testing "Creating networks, truncating prefixes"
+  (testing "Create networks with truncated prefixes"
     (is (= "192.168.0.128/25" (-> "192.168.0.255/25" ip/network-trunc str)))
     (is (= "192.168.0.128/25" (-> "192.168.0.255" (ip/network-trunc 25) str)))))
 
@@ -191,7 +191,7 @@
   (let [nets (ip/network-set "10.0.0.0/8" "192.168.0.0/16")]
     (is (= nets (-> nets pr-str read-string)))))
 
-;; IPv6 parity for the range/subnet helpers (previously untested).
+;; Test IPv6 parity for the range and subnet helpers.
 (deftest test-network-nth
   (testing "IPv4"
     (is (= (ip/address "192.168.0.0") (ip/network-nth "192.168.0.0/30" 0)))
@@ -245,26 +245,26 @@
   (testing "does not merge non-adjacent networks"
     (is (= (ip/network-set "10.0.0.0/24" "10.0.2.0/24")
            (aggregate-networks ["10.0.2.0/24" "10.0.0.0/24"]))))
-  (testing "aggregates IPv4 and IPv6 independently"
+  (testing "Aggregates IPv4 and IPv6 independently"
     (is (= (ip/network-set "10.0.0.0/23" "2001:db8::/127")
            (aggregate-networks ["2001:db8::/128" "10.0.0.0/24"
                                 "10.0.1.0/24" "2001:db8::1/128"]))))
-  (testing "treats bare addresses as host networks"
+  (testing "Treats bare addresses as host networks"
     (is (= (ip/network-set "192.0.2.0/31")
            (aggregate-networks ["192.0.2.1" "192.0.2.0"])))
     (is (= (ip/network-set "2001:db8::/127")
            (aggregate-networks [(ip/address "2001:db8::")
                                 (ip/address "2001:db8::1")]))))
-  (testing "deduplicates and accepts unsorted input"
+  (testing "Removes duplicates and accepts unsorted input"
     (is (= (ip/network-set "10.0.0.0/23")
            (aggregate-networks ["10.0.1.0/24" "10.0.0.0/24"
                                 "10.0.0.0/24"]))))
-  (testing "empty input returns an empty network set"
+  (testing "Empty input returns an empty network set"
     (is (= (ip/network-set) (aggregate-networks []))))
-  (testing "skips malformed entries"
+  (testing "Skips malformed entries"
     (is (= (ip/network-set "10.0.0.0/24")
            (aggregate-networks ["not-an-address" nil "10.0.0.0/24"]))))
-  (testing "output covers exactly the input space"
+  (testing "The output covers exactly the input space"
     (doseq [inputs [["192.0.2.0/30" "192.0.2.4/30" "192.0.2.8/32"]
                     ["192.0.2.1" "192.0.2.2" "192.0.2.7"]
                     ["2001:db8::/126" "2001:db8::4/127" "2001:db8::7"]
@@ -312,7 +312,7 @@
         (is (= expected (ip/special-use last)) last)))))
 
 (deftest test-special-use-predicates
-  (testing "category predicates"
+  (testing "Category predicates"
     (doseq [[predicate positive negative]
             [[ip/private? "10.1.2.3" "8.8.8.8"]
              [ip/loopback? "::1" "8.8.8.8"]
@@ -327,13 +327,13 @@
              [ip/reserved? "240.0.0.1" "8.8.8.8"]]]
       (is (true? (predicate positive)) [predicate positive])
       (is (false? (predicate negative)) [predicate negative])))
-  (testing "global addresses"
+  (testing "Global addresses"
     (is (ip/global? "8.8.8.8"))
     (is (ip/global? "2606:4700:4700::1111"))
     (is (not (ip/global? "192.168.1.1"))))
   (testing "IPv4-mapped IPv6 is not unwrapped"
     (is (= :ipv4-mapped (ip/special-use "::ffff:10.0.0.1")))
     (is (not (ip/private? "::ffff:10.0.0.1"))))
-  (testing "malformed values are non-exceptional"
+  (testing "Malformed values do not cause an exception"
     (is (nil? (ip/special-use "not-an-address")))
     (is (false? (ip/global? "not-an-address")))))

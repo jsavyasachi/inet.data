@@ -1,18 +1,24 @@
 (ns inet.data.dns
   "Functions for interacting with DNS domain names.
 
-Internally represents domain names using a normalized byte-oriented form.  The
-normalized form is defined as: (a) IDN labels IDNA-encoded; (b) domain labels
-arranged from top-level to bottom-level (i.e., reversed from typical order);
-and (c) every label preceded by a byte indicating the count of bytes in the
-label.
+This namespace represents domain names internally in a normalized
+byte-oriented form. The normalized form has these properties:
 
-This form has the following benefits: (a) it may accurately represent any
-binary data, just like the DNS wire form; (b) lexicographic byte order is also
-hierarchical order; and (c) for a given child domain and ancestor domain, one
-may easily find the next longer child of the ancestor.  The primary down-side
-is that this form does make it more difficult to find the immediate parent of a
-given domain."
+- IDN labels use IDNA encoding.
+- Domain labels go from top-level to bottom-level. This is the reverse of the
+  usual order.
+- A byte comes before each label. The byte gives the count of bytes in the
+  label.
+
+This form has these benefits:
+
+- It can represent any binary data accurately, the same as the DNS wire form.
+- Lexicographic byte order is also hierarchical order.
+- For a given child domain and ancestor domain, you can find the next longer
+  child of the ancestor.
+
+The main disadvantage is that this form makes it more difficult to find the
+immediate parent of a given domain."
   (:require [clojure.string :as str]
             [inet.data.util :refer [ignore-errors ffilter ubyte sbyte
                                     bytes-hash-code]]
@@ -24,7 +30,7 @@ given domain."
            [java.net IDN]))
 
 (defprotocol ^:no-doc DNSDomainConstruction
-  "Construct a full domain object."
+  "Construct a domain object."
   (^:private -domain [dom]
     "Produce a DNSDomain from `dom`."))
 
@@ -33,7 +39,7 @@ given domain."
 (defprotocol ^:no-doc DNSDomainOperations
   "Operations on objects which may be treated as domains."
   (^:private -domain? [dom]
-    "Returns whether or not the value represents a valid domain.")
+    "Return true if the value represents a valid domain.")
   (^bytes domain-bytes [dom]
     "Retrieve the internal normalized byte form of the domain as a byte array.
 Only the first `domain-length` bytes will actually contain the domain.")
@@ -41,12 +47,12 @@ Only the first `domain-length` bytes will actually contain the domain.")
     "The length in bytes of this domain."))
 
 (defn domain-byte-seq
-  "Return the internal normalized byte form of of the domain `dom` as a
+  "Return the internal normalized byte form of the domain `dom` as a
 sequence of bytes."
   [dom] (take (domain-length dom) (domain-bytes dom)))
 
 (defn domain?
-  "Determine if dom is a value which represents a DNS domain."
+  "Determine if `dom` represents a DNS domain."
   [dom] (and (satisfies? DNSDomainOperations dom)
              (boolean (-domain? dom))))
 
@@ -59,11 +65,11 @@ sequence of bytes."
     (DNSDomainComparison/domainCompare stable bytes1 len1 bytes2 len2)))
 
 (defn domain-compare
-  "Compare two domains, with the same result semantics as `compare`.  When
-`stable` is true (the default), 0 will only be returned when the domains are
-value-identical.  When `stable` is false, 0 will be returned as long as the
-networks are identical up to their minimum common full-label length.  Domain
-comparison always occurs in a case-independent fashion."
+  "Compare two domains. The result semantics are the same as `compare`. When
+`stable` is true (the default), the result is 0 only when the domains are
+value-identical. When `stable` is false, the result is 0 when the domains are
+identical up to their minimum common full-label length. Domain comparison
+always ignores case."
   (^long [left right] (domain-compare true left right))
   (^long [stable left right]
      (let [left (->domain left)
@@ -80,7 +86,7 @@ comparison always occurs in a case-independent fashion."
        (zero? (domain-compare false parent child)))))
 
 (defn domain-subdomain?
-  "Determine if the domain `child` is a subdomain of the domain `parent`."
+  "Determine if `child` is a subdomain of `parent`."
   [parent child]
   (let [parent (->domain parent)
         child (->domain child)]
@@ -88,7 +94,7 @@ comparison always occurs in a case-independent fashion."
        (zero? (domain-compare false parent child)))))
 
 (defn ->domain-set
-  "Create a hierarchical set from domains in `coll`."
+  "Create a hierarchical set from the domains in `coll`."
   [coll]
   (letfn [(domain-contains-for-set
             [parent child]
@@ -118,8 +124,8 @@ comparison always occurs in a case-independent fashion."
   (.write w "}"))
 
 (defn domain-hostname?
-  "Determine if the provided domain `dom` is a valid hostname.  Allow
-underscores in hostnames if `underscores` is true (default false)."
+  "Determine if the domain `dom` is a valid hostname.  Let hostnames contain
+underscores if `underscores` is true (default false)."
   ([dom] (domain-hostname? dom false))
   ([dom underscores]
      (DNSDomainParser/isValidHostname
@@ -141,7 +147,7 @@ an arbitrary invalid result if the name cannot be encoded."
     empty-bytes))
 
 (defn ^:private wire->bytes
-  "Convert a DNS wire-form domain name into an internal normalized byte form."
+  "Convert a DNS wire-form domain name to an internal normalized byte form."
   (^bytes [wire]
      (->> [nil wire]
           (iterate (fn [[state data]]
@@ -175,7 +181,7 @@ standard string form."
   [dom] (bytes->labels (domain-byte-seq dom)))
 
 (defn idn-str
-  "Convert `dom` to IDN string form, interpreting Punycode."
+  "Convert `dom` to IDN string form. Interpret Punycode."
   [dom] (-> dom domain-byte-seq bytes->name IDN/toUnicode))
 
 (deftype DNSDomain [meta, ^bytes bytes, ^long length]
@@ -228,12 +234,12 @@ standard string form."
   (DNSDomain. nil empty-bytes 0))
 
 (defn domain
-  "The DNS domain for representation `dom`."
+  "Return the DNS domain for representation `dom`."
   {:tag `DNSDomain}
   [dom] (-domain dom))
 
 (defn ->domain
-  "Coerce `dom` to a DNSDomain, throwing when it cannot be interpreted."
+  "Coerce `dom` to a DNSDomain. Throws when it cannot interpret `dom`."
   {:tag `DNSDomain}
   [dom]
   (try
@@ -255,10 +261,10 @@ standard string form."
     (DNSDomain. nil bytes (alength bytes))))
 
 (defn domain-next
-  "For the domain `child` which is a subdomain of domain `parent`, return the
-immediate child domain of `parent` which is either identical to `child` or also
-a parent domain of `child`.  Returns `nil` if there is no such domain.  Uses
-the implied empty root domain as `parent` if not provided."
+  "For the domain `child` which is a subdomain of the domain `parent`, return
+the immediate child domain of `parent`. This domain is identical to `child`,
+or it is a parent domain of `child`. Returns `nil` if there is no such domain.
+Uses the implied empty root domain as `parent` if you do not supply one."
   ([child] (domain-next child root-domain))
   ([child parent]
      (let [child (->domain child)
@@ -268,10 +274,10 @@ the implied empty root domain as `parent` if not provided."
          (DNSDomain. nil bytes (+ length (ubyte (aget bytes length)) 1))))))
 
 (defn domain-ancestors
-  "Generate a seq of the all the domains for which the provided domain `child`
-is a proper subdomain, starting with the domain after `parent` and ending with
-the domain itself.  Uses the implied empty root domain as `parent` if not
-provided."
+  "Generate a seq of all the domains for which the domain `child` is a proper
+subdomain. The seq starts with the domain after `parent` and ends with the
+domain itself. Uses the implied empty root domain as `parent` if you do not
+supply one."
   ([child] (domain-ancestors child root-domain))
   ([child parent]
      (let [child (->domain child)
@@ -280,7 +286,7 @@ provided."
           (take-while identity)))))
 
 (defn domain-parent
-  "Return the domain for which `dom` is an immediate sub-domain."
+  "Return the domain of which `dom` is an immediate subdomain."
   [dom]
   (let [dom (->domain dom)
         bytes (domain-bytes dom), total (domain-length dom)]

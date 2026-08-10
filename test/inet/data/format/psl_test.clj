@@ -92,12 +92,11 @@
                    "blogspot.com\n")
         load* (fn [opts] (psl/load (io/reader (java.io.StringReader. text)) opts))
         e2ld  (fn [psl dom] (psl/lookup psl dom))]
-    (testing "with both sections, a PRIVATE suffix is honored"
-      ;; blogspot.com is a private suffix, so it is itself the E2LD boundary
+    (testing "With both sections, the lookup uses a PRIVATE suffix"
+      ;; blogspot.com is a private suffix. It is the E2LD boundary.
       (is (zero? (dns/domain-compare
                   "foo.blogspot.com" (e2ld (load* nil) "foo.blogspot.com")))))
-    (testing "with ICANN only, the PRIVATE suffix is ignored, falling back to com"
+    (testing "With ICANN only, the lookup ignores the PRIVATE suffix and uses com"
       (is (zero? (dns/domain-compare
                   "blogspot.com"
                   (e2ld (load* {:sections #{:icann}}) "foo.blogspot.com")))))))
-

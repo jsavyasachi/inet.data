@@ -11,28 +11,28 @@
            [java.net InetAddress]))
 
 (defprotocol ^:no-doc IPAddressConstruction
-  "Construct a full address object."
+  "Construct an address object."
   (^:private -address [addr]
     "Produce an IPAddress from `addr`."))
 
 (defprotocol ^:no-doc IPAddressOperations
   "Operations on objects which may be treated as addresses."
   (^:private -address? [addr]
-    "Returns whether or not the value represents a valid address.")
+    "Return true if the value represents a valid address.")
   (^bytes address-bytes [addr]
-    "Retrieve the bytes representation of this address.")
+    "Return the byte representation of this address.")
   (^long address-length [addr]
     "The length in bits of this address."))
 
 (defprotocol ^:no-doc IPNetworkConstruction
-  "Construct a full network object."
+  "Construct a network object."
   (^:private -network [net] [prefix length]
     "Produce an IPNetwork from `net` or `prefix` & `length`."))
 
 (defprotocol ^:no-doc IPNetworkOperations
   "Operations on objects which may be treated as networks."
   (^:private network?* [net] [addr length]
-    "Returns whether or not the value represents a valid network.")
+    "Return true if the value represents a valid network.")
   (network-length [net]
     "The length in bits of the network prefix."))
 
@@ -98,17 +98,17 @@
 (ns-unmap *ns* '->IPAddress)
 
 (defn address
-  "The IP address for representation addr.
+  "Return the IP address for representation `addr`.
 
-  IPv6 zone IDs are accepted and carried in metadata for text round-tripping
-  only. A zone is not part of address identity, equality, hashing, comparison,
-  or network ordering, and is not preserved by serialization. Zones on IPv4
-  addresses and network literals are rejected."
+  This function accepts IPv6 zone IDs. It keeps a zone in metadata for text
+  round-tripping only. A zone is not part of address identity, equality,
+  hashing, comparison, or network ordering. Serialization does not keep the
+  zone. This function rejects zones on IPv4 addresses and on network literals."
   {:tag `IPAddress}
   [addr] (-address addr))
 
 (defn ->address
-  "Coerce `addr` to an IPAddress, throwing when it cannot be interpreted."
+  "Coerce `addr` to an IPAddress. Throws when it cannot interpret `addr`."
   {:tag `IPAddress}
   [addr]
   (try
@@ -121,8 +121,8 @@
       (throw (IPAddressException.
               (format "Cannot interpret %s as an IP address." (pr-str addr)) e)))))
 
-;; BigInteger mapping is internal-only.  BigInteger doesn't preserve the input
-;; byte-array size, so we need to prepend a pseudo-magic prefix to retain the
+;; The BigInteger mapping is internal only.  BigInteger does not keep the input
+;; byte-array size.  We add a pseudo-magic prefix at the start to keep the
 ;; address length.
 (defn ^:private address->BigInteger
   "Convert `addr` to an internal-format BigInteger."
@@ -130,7 +130,7 @@
   [addr] (->> addr address-bytes (cons (byte 63)) byte-array BigInteger.))
 
 (defn address-add
-  "The `n`th address following `addr` numerically."
+  "Return the `n`th address after `addr` in numeric order."
   {:tag `IPAddress}
   [addr n]
   (->> (condp instance? n
@@ -141,7 +141,7 @@
        ->address))
 
 (defn address-range
-  "Sequence of addresses from `start` to `stop` *inclusive*."
+  "Return a sequence of addresses from `start` to `stop`, *inclusive*."
   [start stop]
   (let [start (->address start)
         stop (address->BigInteger (->address stop))]
@@ -154,11 +154,10 @@
 (declare ->network)
 
 (defn network-compare
-  "Compare the prefixes of networks `left` and `right`, with the same result
-semantics as `compare`.  When `stable` is true (the default), 0 will only be
-returned when the networks are value-identical; when `stable` is false, 0 will
-be returned as long as the networks are identical up to their minimum common
-prefix length."
+  "Compare the prefixes of networks `left` and `right`. The result semantics
+are the same as `compare`. When `stable` is true (the default), the result is 0
+only when the networks are value-identical. When `stable` is false, the result
+is 0 when the networks are identical up to their minimum common prefix length."
   (^long [left right] (network-compare true left right))
   (^long [stable left right]
      (let [left (->network left)
@@ -186,7 +185,7 @@ prefix length."
       (BigInt/fromBigInteger (.shiftLeft BigInteger/ONE nbits)))))
 
 (defn network-nth
-  "The `n`th address in the network `net`.  Negative `n`s count backwards
+  "Return the `n`th address in the network `net`. Negative `n`s count backward
 from the final address at -1."
   [net n] (let [net (->network net)]
             (address-add net (if (neg? n) (+ n (network-count net)) n))))
@@ -250,13 +249,13 @@ from the final address at -1."
     (IPAddress. nil bytes)))
 
 (defn network
-  "The IP network for representation `net` or `prefix` & `length`."
+  "Return the IP network for representation `net` or `prefix` and `length`."
   {:tag `IPNetwork}
   ([net] (-network net))
   ([prefix length] (-network prefix length)))
 
 (defn ->network
-  "Coerce `net` to an IPNetwork, throwing when it cannot be interpreted."
+  "Coerce `net` to an IPNetwork. Throws when it cannot interpret `net`."
   {:tag `IPNetwork}
   [net]
   (try
@@ -275,12 +274,12 @@ from the final address at -1."
     (IPNetwork. nil bytes length)))
 
 (defn address?
-  "Determine if `addr` is a value which represents an IP address."
+  "Determine if `addr` represents an IP address."
   [addr] (and (satisfies? IPAddressOperations addr)
               (boolean (-address? addr))))
 
 (defn network?
-  "Determine if `net` is a value which represents an IP network."
+  "Determine if `net` represents an IP network."
   ([net]
      (and (satisfies? IPNetworkOperations net)
           (boolean (network?* net))))
@@ -289,14 +288,14 @@ from the final address at -1."
           (boolean (network?* addr length)))))
 
 (defn inet-address
-  "Generate a java.net.InetAddress from the provided value."
+  "Generate a java.net.InetAddress from the value `addr`."
   {:tag `InetAddress}
   [addr] (let [addr (->address addr)]
             (InetAddress/getByAddress (address-bytes addr))))
 
 (defn network-trunc
-  "Create a network with a prefix consisting of the first `length` bits of
-`prefix` and a length of `length`."
+  "Create a network. Its prefix is the first `length` bits of `prefix`, and its
+length is `length`."
   {:tag `IPNetwork}
   ([prefix]
      (network-trunc prefix (network-length prefix)))
@@ -334,8 +333,8 @@ from the final address at -1."
   (.write w "}"))
 
 (defn network-supernet
-  "Network containing the network `net` with a prefix shorter by `n` bits,
-default 1."
+  "Return a network that contains `net`. Its prefix is `n` bits shorter. The
+default is 1."
   ([net] (network-supernet net 1))
   ([net n]
      (let [net (->network net)
@@ -344,8 +343,8 @@ default 1."
          (network-trunc net pbits)))))
 
 (defn network-subnets
-  "Set of networks within the network `net` which have `n` additional bits of
-network prefix, default 1."
+  "Set of networks in the network `net` which have `n` more bits of network
+prefix, default 1."
   ([net] (network-subnets net 1))
   ([net n]
      (let [net (->network net)
@@ -361,12 +360,12 @@ network prefix, default 1."
        (apply network-set (step lower)))))
 
 (defn address-zero?
-  "True iff address `addr` is the zero address."
+  "True if and only if the address `addr` is the zero address."
   [addr] (every? zero? (address-bytes addr)))
 
 (defn address-networks
-  "Minimal set of networks containing only the addresses in the range from
-`start` to `stop` *inclusive*."
+  "Return the minimal set of networks that contains only the addresses from
+`start` to `stop`, *inclusive*."
   [start stop]
   (let [start (->address start)
         stop (->address stop)
@@ -415,10 +414,10 @@ network prefix, default 1."
 (defn aggregate-networks
   "Return a minimal, ascending `network-set` covering `values` exactly.
 
-  Values may be addresses or networks, and bare addresses become host
-  networks. IPv4 and IPv6 values are aggregated independently. Invalid or
-  unsupported values are skipped, like invalid values rejected by the
-  namespace's address and network predicates."
+  Values can be addresses or networks. Bare addresses become host networks.
+  This function aggregates IPv4 and IPv6 values independently. It skips
+  invalid or unsupported values, the same as the invalid values that this
+  namespace's address and network predicates reject."
   [values]
   (let [nets (->> values
                   (keep aggregate-input-network)
@@ -665,12 +664,12 @@ network prefix, default 1."
           special-use-block-order)))
 
 (defn special-use
-  "Return the most-specific special-use concept keyword for `value`, or nil.
+  "Return the most-specific special-use concept keyword for `value`, or `nil`.
 
-  Address-like and network-like values are accepted.  For a network value, the
-  result is non-nil only when the entire network is inside one special-use
-  block.  IPv4-mapped IPv6 addresses are classified as `:ipv4-mapped`; they
-  are not unwrapped and classified as IPv4 addresses."
+  The function accepts address-like and network-like values. For a network
+  value, the result is non-`nil` only when the full network is inside one
+  special-use block. IPv4-mapped IPv6 addresses have the `:ipv4-mapped`
+  classification. This function does not unwrap them as IPv4 addresses."
   [value]
   (let [block (first (matching-special-use-blocks value))]
     (get special-use-concepts block block)))
@@ -682,56 +681,63 @@ network prefix, default 1."
 (defn private?
   "Return true when `value` is in an RFC 1918 private block.
 
-  For a network value, true requires the entire network to be inside one
-  private block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  For a network value, the result is true only when the full network is
+  inside one private block. This function does not unwrap IPv4-mapped IPv6
+  addresses."
   [value]
   (special-use-in? value #{:private :private-172 :private-192}))
 
 (defn loopback?
   "Return true when `value` is in an IPv4 or IPv6 loopback block.
 
-  For a network value, true requires the entire network to be inside a
-  loopback block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  For a network value, the result is true only when the full network is
+  inside a loopback block. This function does not unwrap IPv4-mapped IPv6
+  addresses."
   [value]
   (special-use-in? value #{:loopback :loopback-v6}))
 
 (defn link-local?
   "Return true when `value` is in an IPv4 or IPv6 link-local block.
 
-  For a network value, true requires the entire network to be inside a
-  link-local block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  For a network value, the result is true only when the full network is
+  inside a link-local block. This function does not unwrap IPv4-mapped IPv6
+  addresses."
   [value]
   (special-use-in? value #{:link-local :link-local-v6}))
 
 (defn multicast?
   "Return true when `value` is in an IPv4 or IPv6 multicast block.
 
-  For a network value, true requires the entire network to be inside a
-  multicast block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  For a network value, the result is true only when the full network is
+  inside a multicast block. This function does not unwrap IPv4-mapped IPv6
+  addresses."
   [value]
   (special-use-in? value #{:multicast :multicast-v6}))
 
 (defn unique-local?
   "Return true when `value` is in the IPv6 unique-local block.
 
-  For a network value, true requires the entire network to be inside the
-  unique-local block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  For a network value, the result is true only when the full network is
+  inside the unique-local block. This function does not unwrap IPv4-mapped
+  IPv6 addresses."
   [value]
   (special-use-in? value #{:unique-local}))
 
 (defn shared-address-space?
   "Return true when `value` is in the IPv4 shared address space block.
 
-  For a network value, true requires the entire network to be inside the
-  shared address space block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  For a network value, the result is true only when the full network is
+  inside the shared address space block. This function does not unwrap
+  IPv4-mapped IPv6 addresses."
   [value]
   (special-use-in? value #{:shared-address-space}))
 
 (defn documentation?
   "Return true when `value` is in an IPv4 or IPv6 documentation block.
 
-  For a network value, true requires the entire network to be inside a
-  documentation block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  For a network value, the result is true only when the full network is
+  inside a documentation block. This function does not unwrap IPv4-mapped
+  IPv6 addresses."
   [value]
   (special-use-in? value #{:documentation :documentation-2 :documentation-3
                             :documentation-v6}))
@@ -739,40 +745,44 @@ network prefix, default 1."
 (defn benchmarking?
   "Return true when `value` is in the IPv4 benchmarking block.
 
-  For a network value, true requires the entire network to be inside the
-  benchmarking block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  For a network value, the result is true only when the full network is
+  inside the benchmarking block. This function does not unwrap IPv4-mapped
+  IPv6 addresses."
   [value]
   (special-use-in? value #{:benchmarking}))
 
 (defn unspecified?
   "Return true when `value` is the IPv6 unspecified address.
 
-  For a network value, true requires the entire network to be `::/128`.
-  IPv4-mapped IPv6 addresses are not unwrapped."
+  For a network value, the result is true only when the full network is
+  `::/128`. This function does not unwrap IPv4-mapped IPv6 addresses."
   [value]
   (special-use-in? value #{:unspecified}))
 
 (defn broadcast?
   "Return true when `value` is the IPv4 limited broadcast address.
 
-  For a network value, true requires the entire network to be
-  `255.255.255.255/32`. IPv4-mapped IPv6 addresses are not unwrapped."
+  For a network value, the result is true only when the full network is
+  `255.255.255.255/32`. This function does not unwrap IPv4-mapped IPv6
+  addresses."
   [value]
   (special-use-in? value #{:limited-broadcast}))
 
 (defn reserved?
   "Return true when `value` is in the IPv4 reserved-for-future-use block.
 
-  For a network value, true requires the entire network to be inside the
-  reserved block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  For a network value, the result is true only when the full network is
+  inside the reserved block. This function does not unwrap IPv4-mapped IPv6
+  addresses."
   [value]
   (special-use-in? value #{:reserved}))
 
 (defn global?
   "Return true when `value` is valid and matches no special-use block.
 
-  For a network value, true requires the entire network to be outside every
-  special-use block.  IPv4-mapped IPv6 addresses are not unwrapped."
+  For a network value, the result is true only when the full network is
+  outside every special-use block. This function does not unwrap IPv4-mapped
+  IPv6 addresses."
   [value]
   (boolean (and (special-use-network value)
                 (not (seq (matching-special-use-blocks value))))))

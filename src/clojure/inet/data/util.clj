@@ -3,10 +3,10 @@
   (:import [clojure.lang IFn ILookup IObj Seqable]))
 
 (defmacro ignore-errors
-  "Returns the result of evaluating body, or nil if it throws an exception."
+  "Return the result from `body`, or `nil` if `body` throws an exception."
   [& body] `(try ~@body (catch java.lang.Exception _# nil)))
 
-;; Copied from clojure/core.clj
+;; Copy from clojure/core.clj.
 (defmacro assert-args [& pairs]
   `(do (when-not ~(first pairs)
          (throw (IllegalArgumentException.
@@ -31,7 +31,7 @@ Returns the result of expr."
             ~@body value#)))))
 
 (defn ffilter
-  "Returns the first item in coll for which (pred item) is true."
+  "Return the first item in `coll` for which `(pred item)` is true."
   ([pred coll]
      (when-let [coll (seq coll)]
        (let [item (first coll)]
@@ -69,17 +69,17 @@ evaluated at macro-expansion time."
         [pos n]))))
 
 (defn ubyte
-  "Unsigned number represented by a byte value."
+  "Return the unsigned number that a byte value represents."
   {:inline (fn [x] `(bit-and 0xff (long ~x)))}
   (^long [^long x] (bit-and 0xff x)))
 
 (defn sbyte
-  "Signed byte representation of an unsigned integral value."
+  "Return the signed byte that an unsigned integer value represents."
   {:inline (fn [x] `(byte (let [x# ~x] (if (> x# 127) (- x# 256) x#))))}
   ([x] (byte (if (> x 127) (- x 256) x))))
 
 (defn bytes-hash-code
-  "Calculate a hash code for a portion of a byte array."
+  "Calculate a hash code for part of a byte array."
   (^long [^bytes bytes]
      (bytes-hash-code bytes 0 (alength bytes) 0))
   (^long [^bytes bytes ^long initial]
@@ -97,8 +97,8 @@ evaluated at macro-expansion time."
                          (unchecked-add-int x))
                     (inc i))))))))
 
-;; Need to track down why, but without this reader literals for inet.data types
-;; fail to support code-embedding.
+;; Without this, reader literals for inet.data types do not support
+;; code-embedding. The cause is not known yet.
 (defmethod clojure.core/print-dup #=(java.lang.Class/forName "[B")
   ([bytes ^java.io.Writer w]
      (.write w "#=(byte-array ")

@@ -4,9 +4,9 @@
 [![cljdoc](https://cljdoc.org/badge/net.clojars.savya/inet.data)](https://cljdoc.org/d/net.clojars.savya/inet.data/CURRENT)
 [![test](https://github.com/jsavyasachi/inet.data/actions/workflows/test.yml/badge.svg)](https://github.com/jsavyasachi/inet.data/actions/workflows/test.yml)
 
-Inet.data is a library for modeling various Internet-related conceptual
-entities as *data*, supporting applications which are *about* the modeled
-entities versus *interfacing* with them.
+Inet.data is a library that models Internet-related entities as *data*. It
+supports applications that are *about* the modeled entities, not applications
+that *interface* with them.
 
 ## Stack
 
@@ -32,21 +32,21 @@ net.clojars.savya/inet.data {:mvn/version "1.0.0"}
 
 ## Building
 
-The Java parsers are generated from the Ragel grammars under `src/ragel`.
-Run `clojure -T:build ragel` to regenerate them. Ragel is only needed when
-changing the grammars. Do not hand-edit the generated Java files.
+The build generates the Java parsers from the Ragel grammars under
+`src/ragel`. Run `clojure -T:build ragel` to generate them again. You need
+Ragel only when you change the grammars. Do not edit the generated Java files.
 
 ## Usage
 
-Currently inet.data includes support for IP addresses and networks, DNS domain
-names, and reverse DNS domains. Example usage follows; [detailed API
-documentation](https://cljdoc.org/d/net.clojars.savya/inet.data) available.
+Inet.data supports IP addresses and networks, DNS domain names, and reverse
+DNS domains. Examples follow. See the [detailed API
+documentation](https://cljdoc.org/d/net.clojars.savya/inet.data).
 
 ### inet.data.ip
 
-The `inet.data.ip` namespace defines types for IP addresses and networks and
-associated functions.  All public functions work in terms of a protocol which
-is also implemented for strings, byte arrays, and `java.net.InetAddress`.
+The `inet.data.ip` namespace defines types for IP addresses and networks, and
+the related functions. All public functions work in terms of a protocol.
+Strings, byte arrays, and `java.net.InetAddress` also implement this protocol.
 
 ```clj
 (require '[inet.data.ip :as ip])
@@ -83,20 +83,21 @@ is also implemented for strings, byte arrays, and `java.net.InetAddress`.
 ```
 
 Parsing has two deliberate modes. The `address`, `network`, and `domain`
-constructors, along with their predicate forms, are lenient: malformed input
-returns `nil` or `false`. Operations that need a parsed value use strict
-coercion and throw `IPAddressException`, `IPNetworkException`, or
-`DNSDomainException` when input cannot be interpreted. Use `address?`,
-`network?`, or `domain?` when testing input instead of asserting that it is
-valid. `aggregate-networks` and the ARPA conversion functions remain lenient
-filtering and conversion APIs and return their documented empty or `nil`
-results for malformed input.
+constructors and their predicate forms are lenient: malformed input returns
+`nil` or `false`. Operations that need a parsed value use strict coercion.
+They throw `IPAddressException`, `IPNetworkException`, or `DNSDomainException`
+when they cannot interpret the input.
+
+Use `address?`, `network?`, or `domain?` to test input. Do not assert that the
+input is valid. `aggregate-networks` and the ARPA conversion functions stay
+lenient. They filter and convert, and they return their documented empty or
+`nil` results for malformed input.
 
 ### inet.data.dns
 
-The `inet.data.dns` namespace defines a type for representing DNS domain names
-and associated functions.  All public functions work in terms of a protocol
-which is also implemented for strings and byte arrays.
+The `inet.data.dns` namespace defines a type for DNS domain names, and the
+related functions. All public functions work in terms of a protocol. Strings
+and byte arrays also implement this protocol.
 
 ```clj
 (require '[inet.data.dns :as dns])
@@ -116,8 +117,8 @@ which is also implemented for strings and byte arrays.
 
 ### inet.data.arpa
 
-The `inet.data.arpa` namespace bridges IP addresses and networks with reverse
-DNS domains. IPv4 zones use octet-aligned prefixes and IPv6 zones use
+The `inet.data.arpa` namespace converts between IP addresses or networks and
+reverse DNS domains. IPv4 zones use octet-aligned prefixes and IPv6 zones use
 nibble-aligned prefixes.
 
 ```clj
@@ -132,11 +133,10 @@ nibble-aligned prefixes.
 
 ### inet.data.format.psl
 
-The `inet.data.format.psl` namespace defines functions for working with files
-in the Mozilla Public Suffix List format.  It can automatically use the current
-version of the list as maintained by the Mozilla project.  The format is
-generally useful for domain suffix applications, but most applications will
-need to provide their own list(s) customized for their particular use cases.
+The `inet.data.format.psl` namespace defines functions for files in the
+Mozilla Public Suffix List format. It can use the current version of the list
+from the Mozilla project. The format is useful for domain suffix applications.
+But most applications must supply their own list for their use case.
 
 ```clj
 (require '[inet.data.format.psl :as psl])
