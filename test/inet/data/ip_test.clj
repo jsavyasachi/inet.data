@@ -2,7 +2,7 @@
   (:require [inet.data.ip :as ip])
   (:use [clojure.test])
   (:import [java.net InetAddress]
-           [inet.data.ip IPException]))
+           [inet.data.ip IPException IPNetworkException]))
 
 (deftest test-strict-network-operations-reject-invalid-input
   (is (thrown? IPException
@@ -164,6 +164,40 @@
   (testing "Network doesn't contain address"
     (is (not (ip/network-contains? "192.168.0.0/16" "8.8.8.8")))
     (is (not (ip/network-contains? "192.168.0.0/17" "192.168.128.1")))))
+
+(deftest test-network-count
+  (testing "Counts that fit in an int"
+    (is (= 16777216 (ip/network-count "10.0.0.0/8")))
+    (is (= 256 (ip/network-count "2001:db8::/120")))
+    (is (= 16777216 (count (ip/network "10.0.0.0/8"))))
+    (is (= 256 (count (ip/network "2001:db8::/120")))))
+  (testing "Exact counts remain available for larger networks"
+    (doseq [[literal expected]
+            [["0.0.0.0/0" 4294967296]
+             ["::/96" 4294967296]
+             ["::/64" 18446744073709551616N]
+             ["::/0" 340282366920938463463374607431768211456N]]]
+      (is (= expected (ip/network-count literal)) literal)))
+  (testing "Count reports networks larger than an int"
+    (doseq [literal ["0.0.0.0/0" "::/96" "::/64" "::/0"]]
+      (is (thrown? IPNetworkException (count (ip/network literal)))
+          literal))))
+
+(deftest test-large-network-nth-and-seq
+  (doseq [[literal first-address last-address]
+          [["0.0.0.0/0" "0.0.0.0" "255.255.255.255"]
+           ["::/96" "::" "::ffff:ffff"]
+           ["::/0" "::" "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]]]
+    (let [net (ip/network literal)]
+      (is (= (ip/address first-address)
+             (ip/network-nth net 0))
+          literal)
+      (is (= (ip/address last-address)
+             (ip/network-nth net -1))
+          literal)
+      (is (= (ip/address first-address)
+             (first (seq net)))
+          literal))))
 
 (deftest test-network-set
   (testing "Sets of networks"
