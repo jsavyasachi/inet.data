@@ -21,7 +21,7 @@
 
 (defn compile-java
   "Compile the ragel-generated Java parsers under src/java into target/classes.
-   Run before `clojure -X:test` (the :test alias puts target/classes on the classpath)."
+   Run before `clojure -M:test` (the :test alias puts target/classes on the classpath)."
   [_]
   (b/javac {:src-dirs ["src/java"]
             :class-dir class-dir

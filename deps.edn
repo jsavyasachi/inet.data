@@ -14,7 +14,6 @@
                 ;; s11n byteable/abracad tests exercise those code paths
                 byteable/byteable {:mvn/version "0.2.0"}
                 com.damballa/abracad {:mvn/version "0.4.13"}}
-   :exec-fn kaocha.runner/exec-fn
    :main-opts ["-m" "kaocha.runner"]}
 
   :1.10 {:override-deps {org.clojure/clojure {:mvn/version "1.10.3"}}}
