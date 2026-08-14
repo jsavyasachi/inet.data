@@ -1,11 +1,13 @@
 # Changelog
 
-## [Unreleased]
+## [2.0.0] - 2026-08-14
 
-### Changed
-- `count` on an `IPNetwork` now throws `IPNetworkException` when the exact
-  network count exceeds `Integer/MAX_VALUE`. Use `network-count` for the exact
-  value.
+### BREAKING
+- `count` on an `IPNetwork` throws `IPNetworkException` when the count of the
+  network exceeds `Integer/MAX_VALUE`. The `count` method of `Indexed` returns a
+  Java `int`, so a larger count became `0`: `0.0.0.0/0` and every IPv6 network
+  of `/96` or shorter reported as empty. Use `network-count`, which returns the
+  exact count for a network of any size.
 
 ## [1.0.0] - 2026-08-01
 
