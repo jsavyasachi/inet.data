@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- `count` on an `IPNetwork` now throws `IPNetworkException` when the exact
+  network count exceeds `Integer/MAX_VALUE`. Use `network-count` for the exact
+  value.
+
 ## [1.0.0] - 2026-08-01
 
 ### BREAKING

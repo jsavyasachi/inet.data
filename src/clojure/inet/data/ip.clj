@@ -176,7 +176,9 @@ is 0 when the networks are identical up to their minimum common prefix length."
          (zero? (network-compare false net addr)))))
 
 (defn network-count
-  "Count of addresses in network `net`."
+  "Count of addresses in network `net`. `count` on an IPNetwork throws an
+IPNetworkException when this value exceeds Integer/MAX_VALUE; use this
+function for the exact count."
   [net]
   (let [net (->network net)
         nbits (- (address-length net) (network-length net))]
@@ -225,7 +227,12 @@ from the final address at -1."
     (if (network-contains? this key) key default))
 
   Indexed
-  (count [this] (network-count this))
+  (count [this]
+    (let [n (network-count this)]
+      (if (> n Integer/MAX_VALUE)
+        (throw (IPNetworkException.
+                "Network count exceeds Integer/MAX_VALUE; use network-count for the exact count."))
+        (int n))))
   (nth [this n] (network-nth this n))
 
   Seqable
