@@ -189,8 +189,14 @@ function for the exact count."
 (defn network-nth
   "Return the `n`th address in the network `net`. Negative `n`s count backward
 from the final address at -1."
-  [net n] (let [net (->network net)]
-            (address-add net (if (neg? n) (+ n (network-count net)) n))))
+  [net n]
+  (let [net (->network net)
+        count (network-count net)
+        index (if (neg? n) (+ n count) n)]
+    (when (or (neg? index) (not (< index count)))
+      (throw (IndexOutOfBoundsException.
+              (format "Network index %s is out of bounds for %s." n net))))
+    (address-add net index)))
 
 (deftype IPNetwork [meta, ^bytes prefix, ^long length]
   Serializable

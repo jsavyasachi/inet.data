@@ -270,7 +270,8 @@ Uses the implied empty root domain as `parent` if you do not supply one."
      (let [child (->domain child)
            parent (->domain parent)
            ^bytes bytes (domain-bytes child), length (domain-length parent)]
-       (when (< length (domain-length child))
+       (when (and (domain-contains? parent child)
+                  (< length (domain-length child)))
          (DNSDomain. nil bytes (+ length (ubyte (aget bytes length)) 1))))))
 
 (defn domain-ancestors

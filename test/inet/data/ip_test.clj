@@ -230,7 +230,11 @@
   (testing "IPv4"
     (is (= (ip/address "192.168.0.0") (ip/network-nth "192.168.0.0/30" 0)))
     (is (= (ip/address "192.168.0.2") (ip/network-nth "192.168.0.0/30" 2)))
-    (is (= (ip/address "192.168.0.3") (ip/network-nth "192.168.0.0/30" -1))))
+    (is (= (ip/address "192.168.0.3") (ip/network-nth "192.168.0.0/30" -1)))
+    (is (thrown? IndexOutOfBoundsException
+                 (ip/network-nth "192.168.0.0/30" 4)))
+    (is (thrown? IndexOutOfBoundsException
+                 (ip/network-nth "192.168.0.0/30" -5))))
   (testing "IPv6"
     (is (= (ip/address "2001:db8::")  (ip/network-nth "2001:db8::/126" 0)))
     (is (= (ip/address "2001:db8::3") (ip/network-nth "2001:db8::/126" 3)))

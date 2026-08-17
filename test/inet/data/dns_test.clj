@@ -84,6 +84,13 @@
   (is (not (dns/domain-contains? "example.com" "wwwexample.com"))
       "Domain does not contain purely lexicographic suffix"))
 
+(deftest test-domain-next
+  (is (nil? (dns/domain-next "www.example.com" "example.net"))
+      "Same-length unrelated parents do not derive children")
+  (is (= (dns/domain "www.example.com")
+         (dns/domain-next "www.example.com" "example.com"))
+      "Genuine parents derive their immediate child"))
+
 (deftest test-domain-subdomain?
   (is (thrown? inet.data.dns.DNSDomainException
                (dns/domain-subdomain? nil "example.com"))
