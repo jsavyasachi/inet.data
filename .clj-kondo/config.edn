@@ -1,0 +1,8 @@
+{:linters
+ {;; Runtime byte-array classes in extend-type are valid Clojure but rejected
+  ;; by clj-kondo's syntax analyzer.
+  :syntax {:level :warning}
+
+  ;; Byteable's extend-byteable and doto-let macros introduce bindings that
+  ;; clj-kondo does not expand, including the Byteable test's baos binding.
+  :unresolved-symbol {:level :warning}}}
