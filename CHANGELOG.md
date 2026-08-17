@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.1] - 2026-08-17
+
+### Fixed
+
+- `network-nth` throws `IndexOutOfBoundsException` for an out-of-range index
+  instead of returning an address from a different network.
+- `domain-next` verifies containment before deriving children, so it no longer
+  produces children for an unrelated parent of matching length.
+
 ## [2.0.0] - 2026-08-14
 
 ### BREAKING
