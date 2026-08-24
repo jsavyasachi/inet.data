@@ -3,7 +3,9 @@
  :deps {org.clojure/clojure {:mvn/version "1.12.5"}
         net.clojars.savya/hier-set {:mvn/version "1.2.2"}
         byteable/byteable {:mvn/version "0.2.0" :optional true}
-        com.damballa/abracad {:mvn/version "0.4.13" :optional true}}
+        com.damballa/abracad {:mvn/version "0.4.13" :optional true}
+        com.cognitect/transit-clj {:mvn/version "1.0.333" :optional true}
+        com.taoensso/nippy {:mvn/version "3.4.2" :optional true}}
 
  :aliases
  {:test
@@ -13,7 +15,9 @@
                 ;; optional serialization backends (lein :provided) - present so the
                 ;; s11n byteable/abracad tests exercise those code paths
                 byteable/byteable {:mvn/version "0.2.0"}
-                com.damballa/abracad {:mvn/version "0.4.13"}}
+                com.damballa/abracad {:mvn/version "0.4.13"}
+                com.cognitect/transit-clj {:mvn/version "1.0.333"}
+                com.taoensso/nippy {:mvn/version "3.4.2"}}
    :main-opts ["-m" "kaocha.runner"]}
 
   :1.10 {:override-deps {org.clojure/clojure {:mvn/version "1.10.3"}}}
