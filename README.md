@@ -134,15 +134,24 @@ nibble-aligned prefixes.
 ### inet.data.format.psl
 
 The `inet.data.format.psl` namespace defines functions for files in the
-Mozilla Public Suffix List format. It can use the current version of the list
-from the Mozilla project. The format is useful for domain suffix applications.
-But most applications must supply their own list for their use case.
+Mozilla Public Suffix List format. The default lookup uses the bundled snapshot
+without a network call. The snapshot is the repository's existing
+`effective_tld_names.dat`, first committed on 2012-06-15; its upstream release
+date is not recorded. Most applications should supply their own list for their
+use case.
 
 ```clj
 (require '[inet.data.format.psl :as psl])
 
 (psl/lookup "www.example.co.uk") ;;=> #dns/domain "example.co.uk"
 ```
+
+`psl/refresh!` fetches the current list from
+`https://publicsuffix.org/list/public_suffix_list.dat` and replaces the cached
+list only after a successful parse. A failed refresh returns the last known-good
+list, or the bundled snapshot, and does not discard the cache. Pass
+`{:timeout-ms n}` to `psl/refresh!` to set the connection and read timeout for
+that request. The `*network-timeout-ms*` dynamic var sets the default timeout.
 
 ## License
 

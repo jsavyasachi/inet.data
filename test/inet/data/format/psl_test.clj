@@ -100,3 +100,37 @@
       (is (zero? (dns/domain-compare
                   "blogspot.com"
                   (e2ld (load* {:sections #{:icann}}) "foo.blogspot.com")))))))
+
+(deftest test-bundled-default-does-not-use-network
+  (let [network-called (atom false)]
+    (with-redefs [psl/open-url (fn [& _] (reset! network-called true))]
+      (binding [psl/*default-psl-url* "https://publicsuffix.org/list/public_suffix_list.dat"]
+        (is (= "example.com" (str (psl/lookup "www.example.com"))))))
+    (is (false? @network-called))))
+
+(deftest test-refresh-updates-the-cache
+  (let [url "mock://psl-refresh"
+        loaded (io/reader (java.io.StringReader. "com\n"))]
+    (with-redefs [psl/open-url (fn [_ _] loaded)]
+      (psl/refresh! url))
+    (binding [psl/*default-psl-url* url]
+      (is (= "example.com" (str (psl/lookup "www.example.com")))))))
+
+(deftest test-refresh-passes-configured-timeout
+  (let [timeout (atom nil)
+        url "mock://psl-timeout"]
+    (with-redefs [psl/open-url (fn [_ timeout-ms]
+                                   (reset! timeout timeout-ms)
+                                   (io/reader (java.io.StringReader. "com\n")))]
+      (psl/refresh! url {:timeout-ms 1234}))
+    (is (= 1234 @timeout))))
+
+(deftest test-failed-refresh-keeps-last-known-good-cache
+  (let [url "mock://psl-fallback"
+        good (io/reader (java.io.StringReader. "com\n"))]
+    (with-redefs [psl/open-url (fn [_ _] good)]
+      (psl/refresh! url))
+    (with-redefs [psl/open-url (fn [_ _] (throw (java.io.IOException. "offline")))]
+      (binding [psl/*default-psl-url* url]
+        (is (= "example.com" (str (psl/lookup "www.example.com"))))
+        (is (= "example.com" (str (psl/lookup (psl/refresh! url) "www.example.com"))))))))
