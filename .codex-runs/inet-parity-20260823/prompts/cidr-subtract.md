@@ -1,0 +1,11 @@
+# Codex task: cidr-subtract
+
+You are an implementation worker in `/Users/savya/projects/inet.data/.worktrees/cidr-subtract` on branch `feat/cidr-subtract`, baseline `c82bd894c7b0be67603c0ea5698da8bfa932bf3e`. This is a mature Clojure IP/DNS data-types library: `IPAddress`/`IPNetwork`/`Domain` deftypes wrap hand-written Java parsers generated from Ragel grammars, with Clojure wrappers under `src/clojure/inet/data/`. Preserve all existing behavior and changes. Do not commit, push, deploy, use credentials, use destructive git commands, or write outside this worktree.
+
+Implement exact CIDR network subtraction as public `network-subtract` in `src/clojure/inet/data/ip.clj` alongside `aggregate-networks`, returning the minimal set of networks covering `a` minus `b`. For example, subtracting a /24 from a /16 yields the surrounding /17,/18,...,/24-sized complement blocks; include a known test such as `10.0.0.0/8` minus `10.1.0.0/16`. Also add public `network-intersect`. Both functions must work on IPv4 and IPv6 `IPNetwork` values. Inspect how `aggregate-networks` handles both families and mirror the appropriate dispatch. Define and test disjoint, containment, equality, partial-overlap (if representable for CIDR), and mixed-family behavior consistently with existing APIs. Do not make unrelated changes.
+
+Use strict TDD: write the focused tests first and run them red for the intended reason, then implement the minimum code, refactor under tests, and preserve red-test evidence in your JSONL narration. Every touched Clojure source file must retain `(set! *warn-on-reflection* true)` and compile with zero reflection warnings. CRITICAL verification order: run `clojure -T:build compile-java` before `clojure -M:test`, because tests depend on generated parser classes in `target/classes`; stale/missing classes are not real failures. Finish only after `clojure -T:build compile-java` and `clojure -M:test` pass with zero reflection warnings.
+
+Do not add any Maven dependency. If you believe one is necessary, do not silently add it: leave it out and state it explicitly in `unresolved_blockers`. Leave all changes unstaged and uncommitted.
+
+End with only: `{"summary":"...","files_changed":["..."],"tests_run":[{"command":"...","exit_code":0,"result":"..."}],"reflection_warnings":0,"new_dependencies_added":[],"unresolved_blockers":[]}`.
