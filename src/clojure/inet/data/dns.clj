@@ -47,12 +47,20 @@ Only the first `domain-length` bytes will actually contain the domain.")
     "The length in bytes of this domain."))
 
 (defn domain-byte-seq
-  "Return the internal normalized byte form of the domain `dom` as a
-sequence of bytes."
+  "Return the internal normalized byte form of the domain `dom` as a sequence
+  of bytes. `dom` accepts a string, primitive byte array, existing DNS domain,
+  or `nil` (the empty root representation). This low-level function is lenient
+  and does not validate strings or arrays; malformed supported values can yield
+  an empty or invalid byte sequence. An unsupported type strictly throws
+  `java.lang.IllegalArgumentException`. Realizing `b` bytes takes O(b) time and
+  O(b) worst-case additional space when a string must be encoded."
   [dom] (take (domain-length dom) (domain-bytes dom)))
 
 (defn domain?
-  "Determine if `dom` represents a DNS domain."
+  "Determine if `dom` represents a DNS domain. It accepts strings, byte arrays,
+  existing DNS domains, and `nil`; `nil` denotes the root and returns `true`.
+  This is lenient and returns `false` for malformed or unsupported non-nil
+  input. Validation is O(b) in the encoded domain length."
   [dom] (and (satisfies? DNSDomainOperations dom)
              (boolean (-domain? dom))))
 
@@ -69,7 +77,12 @@ sequence of bytes."
 `stable` is true (the default), the result is 0 only when the domains are
 value-identical. When `stable` is false, the result is 0 when the domains are
 identical up to their minimum common full-label length. Domain comparison
-always ignores case."
+always ignores case. Domain arguments accept strings, primitive byte arrays, or
+existing DNS domains; `stable` must be Boolean. This is strict: an invalid
+domain throws `inet.data.dns.DNSDomainException`; a non-Boolean `stable` throws
+`java.lang.ClassCastException`, and nil `stable` throws
+`java.lang.NullPointerException`. Comparison is O(b) in normalized domain
+length."
   (^long [left right] (domain-compare true left right))
   (^long [stable left right]
      (let [left (->domain left)
@@ -78,7 +91,10 @@ always ignores case."
 
 (defn domain-contains?
   "Determine if the domain `child` is a subdomain of or identical to the domain
-`parent`."
+`parent`. Both arguments accept strings, primitive byte arrays, or existing DNS domain
+values. This is strict and throws `inet.data.dns.DNSDomainException` for
+malformed or unsupported input. Comparison is O(b), where `b` is the longer
+normalized domain length."
   [parent child]
   (let [parent (->domain parent)
         child (->domain child)]
@@ -86,7 +102,10 @@ always ignores case."
        (zero? (domain-compare false parent child)))))
 
 (defn domain-subdomain?
-  "Determine if `child` is a subdomain of `parent`."
+  "Determine if `child` is a proper subdomain of `parent`. Both arguments
+accept strings, byte arrays, or existing DNS domain values. This is strict and
+throws `inet.data.dns.DNSDomainException` for malformed or unsupported input.
+Comparison is O(b), where `b` is the longer normalized domain length."
   [parent child]
   (let [parent (->domain parent)
         child (->domain child)]
@@ -94,7 +113,14 @@ always ignores case."
        (zero? (domain-compare false parent child)))))
 
 (defn ->domain-set
-  "Create a hierarchical set from the domains in `coll`."
+  "Create a hierarchical set from the domains in finite seqable `coll`, or an
+  empty set when `coll` is nil. Members may be strings, primitive byte arrays,
+  existing DNS domains, or nil. This constructor is lenient for malformed
+  supported members: `domain` converts them to nil, which the set retains as
+  the root representation. An unsupported member or non-seqable `coll` throws
+  `java.lang.IllegalArgumentException`. Building `n` members takes O(n^2 * b +
+  B) worst-case time and O(n + B) space, where `b` is the longest encoded
+  domain and `B` is the encoded byte total."
   [coll]
   (letfn [(domain-contains-for-set
             [parent child]
@@ -110,7 +136,12 @@ always ignores case."
         (vary-meta assoc :type ::domain-set))))
 
 (defn domain-set
-  "Create a hierarchical set from domains `doms`."
+  "Create a hierarchical set from variadic domains `doms`; each member accepts
+  the same types as `domain`. This is lenient for malformed supported members,
+  which become retained nil root representations. An unsupported member throws
+  `java.lang.IllegalArgumentException`. Building `n` members takes O(n^2 * b +
+  B) worst-case time and O(n + B) space, where `b` is the longest encoded
+  domain and `B` is the encoded byte total."
   [& doms] (->domain-set doms))
 
 (defmethod clojure.core/print-method ::domain-set
@@ -125,7 +156,12 @@ always ignores case."
 
 (defn domain-hostname?
   "Determine if the domain `dom` is a valid hostname.  Let hostnames contain
-underscores if `underscores` is true (default false)."
+underscores if `underscores` is true (default false). `dom` must be a string,
+primitive byte array, existing DNS domain, or nil root representation;
+`underscores` must be Boolean. This is lenient and returns `false` for invalid
+hostname content. An unsupported `dom` throws `java.lang.IllegalArgumentException`;
+a non-Boolean flag throws `java.lang.ClassCastException`, and a nil flag throws
+`java.lang.NullPointerException`. Validation is O(b) in encoded length."
   ([dom] (domain-hostname? dom false))
   ([dom underscores]
      (DNSDomainParser/isValidHostname
@@ -177,11 +213,22 @@ standard string form."
   [bytes] (str/join "." (bytes->labels bytes)))
 
 (defn domain-labels
-  "Seq of labels in the domain `dom`."
+  "Return a sequence of labels in the domain `dom`. `dom` accepts strings, byte
+arrays, existing DNS domains, or nil. Like `domain-byte-seq`, this is lenient
+and does not validate supported values; malformed input can produce an empty or
+invalid label sequence, and a byte array with a negative label length can fail
+to terminate. An unsupported type throws
+`java.lang.IllegalArgumentException`. Realization is O(b) time and O(b) space,
+where `b` is encoded length."
   [dom] (bytes->labels (domain-byte-seq dom)))
 
 (defn idn-str
-  "Convert `dom` to IDN string form. Interpret Punycode."
+  "Convert `dom` to IDN string form and interpret Punycode. `dom` accepts
+strings, primitive byte arrays, existing DNS domains, or nil. This is lenient
+for malformed supported input and can return an empty or partially decoded
+string; a byte array with a negative label length can fail to terminate. An
+unsupported type throws `java.lang.IllegalArgumentException`. For structurally
+valid input, conversion is O(b) in normalized byte length."
   [dom] (-> dom domain-byte-seq bytes->name IDN/toUnicode))
 
 (deftype DNSDomain [meta, ^bytes bytes, ^long length]
@@ -234,12 +281,19 @@ standard string form."
   (DNSDomain. nil empty-bytes 0))
 
 (defn domain
-  "Return the DNS domain for representation `dom`."
+  "Return the DNS domain for representation `dom`. Accepted values are
+strings, primitive byte arrays, existing DNS domains, and nil, which is the
+root-domain representation. This is lenient for supported types: malformed
+input returns nil. An unsupported type throws `java.lang.IllegalArgumentException`.
+Parsing is O(b) in input length."
   {:tag `DNSDomain}
   [dom] (-domain dom))
 
 (defn ->domain
-  "Coerce `dom` to a DNSDomain. Throws when it cannot interpret `dom`."
+  "Coerce `dom` to a DNSDomain. Accepted values are strings, primitive byte
+  arrays, or existing DNS domains. This is strict and throws
+  `inet.data.dns.DNSDomainException` for malformed, unsupported, or nil input.
+  Parsing is O(b) in input length."
   {:tag `DNSDomain}
   [dom]
   (try
@@ -264,7 +318,11 @@ standard string form."
   "For the domain `child` which is a subdomain of the domain `parent`, return
 the immediate child domain of `parent`. This domain is identical to `child`,
 or it is a parent domain of `child`. Returns `nil` if there is no such domain.
-Uses the implied empty root domain as `parent` if you do not supply one."
+Uses the implied empty root domain as `parent` if you do not supply one.
+Arguments accept strings, byte arrays, or existing DNS domains. This is strict
+and throws `inet.data.dns.DNSDomainException` for invalid input. It returns
+`nil` when `parent` is not an ancestor. The operation is O(b) in encoded
+length."
   ([child] (domain-next child root-domain))
   ([child parent]
      (let [child (->domain child)
@@ -278,7 +336,10 @@ Uses the implied empty root domain as `parent` if you do not supply one."
   "Generate a seq of all the domains for which the domain `child` is a proper
 subdomain. The seq starts with the domain after `parent` and ends with the
 domain itself. Uses the implied empty root domain as `parent` if you do not
-supply one."
+supply one. Arguments accept strings, byte arrays, or existing DNS domains.
+This is strict and throws `inet.data.dns.DNSDomainException` for invalid input.
+For `k` returned ancestors and encoded length `b`, realization is O(k * b) time
+and O(1) additional space per realized step."
   ([child] (domain-ancestors child root-domain))
   ([child parent]
      (let [child (->domain child)
@@ -287,7 +348,11 @@ supply one."
           (take-while identity)))))
 
 (defn domain-parent
-  "Return the domain of which `dom` is an immediate subdomain."
+  "Return the domain of which `dom` is an immediate subdomain. `dom` accepts
+strings, byte arrays, or an existing DNS domain. This is strict and throws
+`inet.data.dns.DNSDomainException` for malformed or unsupported input; the root
+domain has no parent and returns `nil`. The scan is O(b) in normalized byte
+length."
   [dom]
   (let [dom (->domain dom)
         bytes (domain-bytes dom), total (domain-length dom)]

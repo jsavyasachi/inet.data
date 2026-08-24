@@ -40,7 +40,12 @@ depends on the other."
   `nil`. This function deliberately does not implement RFC 2317 classless IPv4
   delegation. It treats IPv4-mapped IPv6 values as IPv6 values and returns
   `ip6.arpa` names. Malformed input returns `nil`, the same as the
-  non-exceptional behavior of `ip/address?` and `dns/domain?`."
+  non-exceptional behavior of `ip/address?` and `dns/domain?`.
+  The accepted values are strings, byte arrays, `java.net.InetAddress`,
+  `java.math.BigInteger`, and existing IP address or network values. This is
+  lenient and returns `nil` for malformed, nil, unsupported, or non-aligned
+  input; it catches every `java.lang.Exception` and does not throw for those
+  failures. Conversion is O(1) for the fixed maximum IP address width."
   [value]
   (try
     (let [network? (ip/network? value)
@@ -108,7 +113,11 @@ depends on the other."
   This function reads `in-addr.arpa` names at octet granularity and `ip6.arpa`
   names at nibble granularity. Suffix matching ignores case. The function
   accepts one trailing dot. Malformed input returns `nil`. IPv4-mapped IPv6
-  names stay IPv6 and therefore give an `ip6.arpa` result."
+  names stay IPv6 and therefore give an `ip6.arpa` result. Accepted values are
+  strings, primitive byte arrays, existing DNS domain values, and nil. This is
+  lenient and returns `nil` for malformed or unsupported input; it catches every
+  `java.lang.Exception` and does not throw for those failures. Conversion is
+  O(b) in the encoded domain length."
   [value]
   (try
     (when (or (string? value) (dns/domain? value))
