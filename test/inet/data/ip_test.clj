@@ -4,6 +4,8 @@
   (:import [java.net InetAddress]
            [inet.data.ip IPException IPNetworkException]))
 
+(set! *warn-on-reflection* true)
+
 (deftest test-strict-network-operations-reject-invalid-input
   (is (thrown? IPException
                (ip/network-contains? "abx-@" "abx-@"))))
@@ -215,9 +217,11 @@
 (deftest test-network-set-to-array-jdk-11
   (let [expected [(ip/network "10.0.0.0/24")
                  (ip/network "10.0.1.0/24")]
-        networks (ip/network-set "10.0.0.0/24" "10.0.1.0/24")]
+        ^objects expected-array (into-array expected)
+        ^java.util.Set networks
+        (ip/network-set "10.0.0.0/24" "10.0.1.0/24")]
     (is (= expected (vec (.toArray networks))))
-    (is (= expected (vec (.toArray networks (into-array expected)))))
+    (is (= expected (vec (.toArray networks expected-array))))
     (is (= expected (vec networks)))
     (is (= expected (into [] networks)))))
 
@@ -268,6 +272,51 @@
 (defn covered-addresses
   [nets]
   (set (mapcat seq nets)))
+
+(defn network-subtract
+  [a b]
+  (if-let [subtract (ns-resolve 'inet.data.ip 'network-subtract)]
+    (subtract a b)
+    ::missing))
+
+(defn network-intersect
+  [a b]
+  (if-let [intersect (ns-resolve 'inet.data.ip 'network-intersect)]
+    (intersect a b)
+    ::missing))
+
+(deftest test-network-intersect
+  (testing "returns the narrower network for overlapping CIDRs"
+    (is (= (ip/network "10.1.0.0/16")
+           (network-intersect "10.0.0.0/8" "10.1.0.0/16")))
+    (is (= (ip/network "2001:db8::/128")
+           (network-intersect "2001:db8::/126" "2001:db8::/128"))))
+  (testing "returns the identical network for equality"
+    (is (= (ip/network "10.0.0.0/24")
+           (network-intersect "10.0.0.0/24" "10.0.0.0/24"))))
+  (testing "returns nil for disjoint and mixed-family networks"
+    (is (nil? (network-intersect "10.0.0.0/24" "10.0.1.0/24")))
+    (is (nil? (network-intersect "10.0.0.0/24" "2001:db8::/64")))))
+
+(deftest test-network-subtract
+  (testing "subtracts a contained IPv4 network into minimal complement blocks"
+    (is (= (ip/network-set "10.0.0.0/16" "10.2.0.0/15" "10.4.0.0/14"
+                           "10.8.0.0/13" "10.16.0.0/12" "10.32.0.0/11"
+                           "10.64.0.0/10" "10.128.0.0/9")
+           (network-subtract "10.0.0.0/8" "10.1.0.0/16"))))
+  (testing "works for IPv6"
+    (is (= (ip/network-set "2001:db8::/127")
+           (network-subtract "2001:db8::/126" "2001:db8::2/127"))))
+  (testing "handles disjoint, containing, and equal networks"
+    (is (= (ip/network-set "10.0.0.0/24")
+           (network-subtract "10.0.0.0/24" "10.0.1.0/24")))
+    (is (= (ip/network-set)
+           (network-subtract "10.0.0.0/24" "10.0.0.0/16")))
+    (is (= (ip/network-set)
+           (network-subtract "10.0.0.0/24" "10.0.0.0/24"))))
+  (testing "treats mixed-family networks as disjoint"
+    (is (= (ip/network-set "10.0.0.0/24")
+           (network-subtract "10.0.0.0/24" "2001:db8::/64")))))
 
 (deftest test-aggregate-networks
   (testing "absorbs networks contained by another"

@@ -442,6 +442,41 @@ prefix, default 1."
           (apply network-set nets)
           (recur merged))))))
 
+(defn network-intersect
+  "Return the intersection of CIDR networks `left` and `right`, or nil when
+  they are disjoint. Since CIDR networks can only overlap by containment, the
+  result is the narrower network."
+  [left right]
+  (let [left (->network left)
+        right (->network right)]
+    (when (= (address-length left) (address-length right))
+      (cond
+        (network-contains? left right) right
+        (network-contains? right left) left))))
+
+(defn network-subtract
+  "Return a minimal `network-set` covering network `left` minus `right`."
+  [left right]
+  (let [left (->network left)
+        right (->network right)]
+    (cond
+      (not= (address-length left) (address-length right))
+      (network-set left)
+
+      (nil? (network-intersect left right))
+      (network-set left)
+
+      (= left right)
+      (network-set)
+
+      (network-contains? right left)
+      (network-set)
+
+      :else
+      (apply network-set
+             (mapcat #(network-subtract % right)
+                     (network-subnets left))))))
+
 (extend-type IPAddress
   IPAddressConstruction
   (-address [this] this)
