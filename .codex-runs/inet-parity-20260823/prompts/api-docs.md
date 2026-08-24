@@ -1,0 +1,9 @@
+# Codex task: api-docs
+
+You are a DOCS-ONLY worker in `/Users/savya/projects/inet.data/.worktrees/api-docs` on branch `feat/api-docs`, baseline `c82bd894c7b0be67603c0ea5698da8bfa932bf3e`. This mature Clojure IP/DNS library has public APIs in `src/clojure/inet/data/{ip,dns,arpa,util}.clj` and `src/clojure/inet/data/format/*.clj`. Do not make behavior changes. Do not commit, push, deploy, use credentials, use destructive git commands, or write outside this worktree.
+
+Audit every public function in those files. Ensure its docstring states accepted input types, strict-versus-lenient behavior (throw versus nil/false on bad input), exact exception type on failure when any, and Big-O complexity for any function operating over a collection such as `aggregate-networks`. Fill gaps without removing or weakening existing content. Be accurate from implementation/tests—do not guess or overpromise. Add a short `Common workflows` section to `README.md` with 2-3 runnable examples for routing/CIDR and DNS/PSL if none exists. Scope is docstrings and README only: no function bodies, tests, dependencies, release metadata, build files, or behavior changes.
+
+Because this is docs-only, TDD does not authorize behavior changes; validate examples and namespace compilation, and if an apparent behavior discrepancy is found, report it rather than fixing code. Every touched Clojure source must retain `(set! *warn-on-reflection* true)` and compile with zero reflection warnings. CRITICAL: run `clojure -T:build compile-java` before `clojure -M:test`; require full suite green and zero reflection warnings.
+
+Do not add Maven dependencies. If one seems necessary, omit it and report it in `unresolved_blockers`. Leave changes unstaged and uncommitted. End with only the required JSON object containing `summary`, `files_changed`, `tests_run`, `reflection_warnings`, `new_dependencies_added`, and `unresolved_blockers`.

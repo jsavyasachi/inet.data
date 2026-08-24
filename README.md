@@ -21,13 +21,13 @@ Inet.data is available on Clojars.
 Leiningen (`project.clj`):
 
 ```clj
-[net.clojars.savya/inet.data "2.0.1"]
+[net.clojars.savya/inet.data "2.1.0"]
 ```
 
 Clojure CLI (`deps.edn`):
 
 ```clj
-net.clojars.savya/inet.data {:mvn/version "2.0.1"}
+net.clojars.savya/inet.data {:mvn/version "2.1.0"}
 ```
 
 ## Building
@@ -36,11 +36,36 @@ The build generates the Java parsers from the Ragel grammars under
 `src/ragel`. Run `clojure -T:build ragel` to generate them again. You need
 Ragel only when you change the grammars. Do not edit the generated Java files.
 
+The large synthetic IP performance benchmark is opt-in because it is slow:
+`clojure -T:build compile-java && clojure -M:test --profile integration --focus-meta :integration`.
+Normal test runs skip tests tagged `^:integration`.
+
 ## Usage
 
 Inet.data supports IP addresses and networks, DNS domain names, and reverse
 DNS domains. Examples follow. See the [detailed API
 documentation](https://cljdoc.org/d/net.clojars.savya/inet.data).
+
+### Common workflows
+
+Route an address through a CIDR set:
+
+```clj
+(require '[inet.data.ip :as ip])
+(def private-ranges (ip/network-set "10.0.0.0/8" "192.168.0.0/16"))
+(get private-ranges "10.20.30.40") ;;=> (#ip/network "10.0.0.0/8")
+```
+
+Find the public-suffix boundary for a DNS name:
+
+```clj
+(require '[clojure.java.io :as io]
+         '[inet.data.format.psl :as psl])
+
+(with-open [source (io/reader (java.io.StringReader. "com\nco.uk\n"))]
+  (psl/lookup (psl/load source) "www.example.co.uk"))
+;;=> #dns/domain "example.co.uk"
+```
 
 ### inet.data.ip
 
@@ -134,15 +159,24 @@ nibble-aligned prefixes.
 ### inet.data.format.psl
 
 The `inet.data.format.psl` namespace defines functions for files in the
-Mozilla Public Suffix List format. It can use the current version of the list
-from the Mozilla project. The format is useful for domain suffix applications.
-But most applications must supply their own list for their use case.
+Mozilla Public Suffix List format. The default lookup uses the bundled snapshot
+without a network call. The snapshot is the repository's existing
+`effective_tld_names.dat`, first committed on 2012-06-15; its upstream release
+date is not recorded. Most applications should supply their own list for their
+use case.
 
 ```clj
 (require '[inet.data.format.psl :as psl])
 
 (psl/lookup "www.example.co.uk") ;;=> #dns/domain "example.co.uk"
 ```
+
+`psl/refresh!` fetches the current list from
+`https://publicsuffix.org/list/public_suffix_list.dat` and replaces the cached
+list only after a successful parse. A failed refresh returns the last known-good
+list, or the bundled snapshot, and does not discard the cache. Pass
+`{:timeout-ms n}` to `psl/refresh!` to set the connection and read timeout for
+that request. The `*network-timeout-ms*` dynamic var sets the default timeout.
 
 ## License
 

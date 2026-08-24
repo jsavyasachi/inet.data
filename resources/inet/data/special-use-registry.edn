@@ -1,0 +1,35 @@
+{:registry-version "repository-snapshot-2026-08-23"
+ :snapshot-date "2026-08-23"
+ :source-registries ["IPv4 Special-Purpose Address Space"
+                     "IPv6 Special-Purpose Address Space"]
+ :rfcs ["RFC 1918" "RFC 6890" "RFC 4193" "RFC 3927" "RFC 6598"
+        "RFC 5737" "RFC 3849" "RFC 3056" "RFC 4380" "RFC 6052"
+        "RFC 6666"]
+ :source-note "Repository snapshot extracted from the existing inet.data special-use classifications; this is not a live IANA fetch or build-time generation."
+ :blocks [{:name :this-network, :network "0.0.0.0/8"}
+          {:name :private, :network "10.0.0.0/8"}
+          {:name :shared-address-space, :network "100.64.0.0/10"}
+          {:name :loopback, :network "127.0.0.0/8"}
+          {:name :link-local, :network "169.254.0.0/16"}
+          {:name :private-172, :network "172.16.0.0/12"}
+          {:name :ietf-protocol-assignments, :network "192.0.0.0/24"}
+          {:name :documentation, :network "192.0.2.0/24"}
+          {:name :six-to-four-relay-anycast, :network "192.88.99.0/24"}
+          {:name :private-192, :network "192.168.0.0/16"}
+          {:name :benchmarking, :network "198.18.0.0/15"}
+          {:name :documentation-2, :network "198.51.100.0/24"}
+          {:name :documentation-3, :network "203.0.113.0/24"}
+          {:name :multicast, :network "224.0.0.0/4"}
+          {:name :reserved, :network "240.0.0.0/4"}
+          {:name :limited-broadcast, :network "255.255.255.255/32"}
+          {:name :unspecified, :network "::/128"}
+          {:name :loopback-v6, :network "::1/128"}
+          {:name :ipv4-mapped, :network "::ffff:0:0/96"}
+          {:name :ipv4-ipv6-translation, :network "64:ff9b::/96"}
+          {:name :discard-only, :network "100::/64"}
+          {:name :teredo, :network "2001::/32"}
+          {:name :documentation-v6, :network "2001:db8::/32"}
+          {:name :six-to-four, :network "2002::/16"}
+          {:name :unique-local, :network "fc00::/7"}
+          {:name :link-local-v6, :network "fe80::/10"}
+          {:name :multicast-v6, :network "ff00::/8"}]}

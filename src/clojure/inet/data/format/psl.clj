@@ -17,9 +17,15 @@ See the tests for examples."
             [inet.data.dns :as dns]
             [inet.data.util :refer [ffilter]]))
 
+(set! *warn-on-reflection* true)
+
 (def ^:dynamic *default-psl-url*
   "URL of the default Mozilla Public Suffix List file."
   "https://publicsuffix.org/list/public_suffix_list.dat")
+
+(def ^:dynamic *network-timeout-ms*
+  "Default connection and read timeout, in milliseconds, for PSL refreshes."
+  10000)
 
 (defn load
   "Load a Mozilla Public Suffix List format file from the Reader `source`.
@@ -29,7 +35,20 @@ See the tests for examples."
   - `:sections`: A set from `#{:icann :private}`. It selects sections of the
     list to include. The PSL has the `// ===BEGIN ICANN DOMAINS===` and
     `// ===BEGIN PRIVATE DOMAINS===` marker comments. Pass `#{:icann}` to
-    ignore the user-contributed PRIVATE section. The default has both sections."
+    ignore the user-contributed PRIVATE section. The default has both sections.
+
+  `source` must specifically be a `java.io.BufferedReader`, as required by
+  `line-seq`. `opts` is normally nil or a map; non-associative values are
+  treated like nil by map destructuring. A supplied `:sections` must be a set.
+  Parsing is lenient about malformed domain rules: they become nil prefixes and
+  remain in the returned set and rule map.
+
+  Nil `source` throws `java.lang.NullPointerException`; another Reader or
+  non-reader throws `java.lang.ClassCastException`; reading failures throw
+  `java.io.IOException`; and a `:sections` value unsupported by `contains?`
+  throws `java.lang.IllegalArgumentException`. For `n` retained rules with
+  longest encoded domain `b` and encoded byte total `B`, loading takes O(n^2 *
+  b + B) worst-case time and O(n + B) result space."
   ([source] (load source nil))
   ([source {:keys [sections] :or {sections #{:icann :private}}}]
    (letfn [(prefix? [^String s1 ^String s2] (.startsWith s2 s1))
@@ -64,17 +83,81 @@ See the tests for examples."
                               :prefixes (dns/domain-set), :rules {}}))]
        [prefixes rules]))))
 
-(def ^:private memo-load
-  (memoize
-   (fn [url]
-     (with-open [source (io/reader url)]
-       (load source)))))
+(def ^:private bundled-resource "effective_tld_names.dat")
+
+(defn- bundled-load []
+  (when-let [resource (io/resource bundled-resource)]
+    (with-open [source (io/reader resource)]
+      (load source))))
+
+(defn- open-url [url timeout-ms]
+  (let [^java.net.URLConnection connection (.openConnection (io/as-url url))]
+    (.setConnectTimeout connection (int timeout-ms))
+    (.setReadTimeout connection (int timeout-ms))
+    (io/reader (.getInputStream connection))))
+
+(def ^:private bundled-psl
+  (delay (bundled-load)))
+
+(def ^:private psl-cache
+  (atom {*default-psl-url* @bundled-psl}))
+
+(defn- memo-load [url timeout-ms]
+  (if-let [cached (get @psl-cache url)]
+    cached
+    (try
+      (let [loaded (with-open [^java.io.BufferedReader source (open-url url timeout-ms)]
+                     (load source))]
+        (swap! psl-cache assoc url loaded)
+        loaded)
+      (catch Exception _
+        (or @bundled-psl)))))
+
+(defn refresh!
+  "Refresh the cached default PSL.
+
+  With no arguments, fetch `*default-psl-url*`. An optional map supports
+  `:timeout-ms`; a URL and options map can also be supplied for testing or
+  applications with more than one PSL. A failed refresh returns the last
+  known-good list for that URL, or the bundled snapshot, and leaves the cache
+  unchanged."
+  ([] (refresh! *default-psl-url* nil))
+  ([url-or-opts]
+   (if (map? url-or-opts)
+     (refresh! *default-psl-url* url-or-opts)
+     (refresh! url-or-opts nil)))
+  ([url {:keys [timeout-ms] :or {timeout-ms *network-timeout-ms*}}]
+   (let [previous (or (get @psl-cache url) @bundled-psl)]
+     (try
+       (let [loaded (with-open [^java.io.BufferedReader source (open-url url timeout-ms)]
+                      (load source))]
+         (swap! psl-cache assoc url loaded)
+         loaded)
+       (catch Exception _ previous)))))
+
+(defn- default-load []
+  (or (get @psl-cache *default-psl-url*)
+      (let [loaded (memo-load *default-psl-url* *network-timeout-ms*)]
+        (swap! psl-cache assoc *default-psl-url* loaded)
+        loaded)))
 
 (defn lookup
   "Determine the E2LD of `domain` from the PSL in `psl`. Use the default PSL
 from `*default-psl-url*` if `psl` is not supplied. Return `nil` if `domain`
-does not match `psl`."
-  ([dom] (lookup (memo-load *default-psl-url*) dom))
+does not match `psl`. `dom` accepts a string, primitive byte array, existing DNS
+domain, or nil. `psl` must be the indexed `[prefixes rules]` result from `load`.
+For a valid PSL this is lenient: nil and malformed supported domains return nil.
+Nil or a short indexed `psl` also returns nil. An unsupported domain type throws
+`java.lang.IllegalArgumentException`; a non-nil, non-indexed `psl` throws
+`java.lang.UnsupportedOperationException`.
+
+The one-argument form uses `default-load`: the cached list for
+`*default-psl-url*` if one has been loaded or refreshed, otherwise the bundled
+snapshot loaded via `bundled-psl` (no network call on first use). It never
+throws for load failures - `refresh!` is the explicit, timeout-bounded way to
+fetch and cache a live list. For `n` PSL entries, `k` matching ancestors, and
+encoded domain length `b`, lookup is O(b * (log n + k))."
+  ([dom] (lookup (default-load) dom))
   ([psl dom]
      (let [dom (dns/domain dom), [prefixes rules] psl,
            matching? (fn [[prefix rule]]

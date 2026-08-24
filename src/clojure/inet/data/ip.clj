@@ -1,6 +1,8 @@
 (ns inet.data.ip
   "Functions for interacting with IP addresses and networks."
-  (:require [clojure.string :as str]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
             [inet.data.util :refer [ignore-errors case-expr ubyte sbyte longest-run
                                     bytes-hash-code doto-let]]
             [hier-set.core :refer [hier-set-by]])
@@ -9,6 +11,8 @@
            [java.io Serializable]
            [java.util Arrays]
            [java.net InetAddress]))
+
+(set! *warn-on-reflection* true)
 
 (defprotocol ^:no-doc IPAddressConstruction
   "Construct an address object."
@@ -103,12 +107,21 @@
   This function accepts IPv6 zone IDs. It keeps a zone in metadata for text
   round-tripping only. A zone is not part of address identity, equality,
   hashing, comparison, or network ordering. Serialization does not keep the
-  zone. This function rejects zones on IPv4 addresses and on network literals."
+  zone. This function rejects zones on IPv4 addresses and on network literals.
+
+  Accepted values are strings, byte arrays, `java.net.InetAddress` values,
+  `java.math.BigInteger` values, and existing address or network values. This
+  is lenient for those supported representations: malformed input returns
+  `nil`. An unsupported type throws `java.lang.IllegalArgumentException`.
+  Parsing is O(1) for the fixed maximum address width."
   {:tag `IPAddress}
   [addr] (-address addr))
 
 (defn ->address
-  "Coerce `addr` to an IPAddress. Throws when it cannot interpret `addr`."
+  "Coerce `addr` to an IPAddress. Accepted values are the same strings, byte
+  arrays, `java.net.InetAddress`, `java.math.BigInteger`, and existing address
+  or network values accepted by `address`. This is strict: malformed or
+  unsupported input throws `inet.data.ip.IPAddressException`."
   {:tag `IPAddress}
   [addr]
   (try
@@ -130,7 +143,14 @@
   [addr] (->> addr address-bytes (cons (byte 63)) byte-array BigInteger.))
 
 (defn address-add
-  "Return the `n`th address after `addr` in numeric order."
+  "Return the `n`th address after `addr` in numeric order. `addr` is any value
+  accepted by `->address`; `n` may be a number coercible to `long`, a
+  `clojure.lang.BigInt`, or a `java.math.BigInteger`. Invalid `addr` throws
+  `inet.data.ip.IPAddressException`. Nil `n` throws
+  `java.lang.NullPointerException`; a non-number throws
+  `java.lang.ClassCastException`. Numeric values other than `BigInt` and
+  `BigInteger` are converted to `long`, truncating fractions; an out-of-range
+  conversion throws `java.lang.IllegalArgumentException`. This is O(1)."
   {:tag `IPAddress}
   [addr n]
   (->> (condp instance? n
@@ -141,7 +161,10 @@
        ->address))
 
 (defn address-range
-  "Return a sequence of addresses from `start` to `stop`, *inclusive*."
+  "Return a lazy sequence of addresses from `start` to `stop`, *inclusive*.
+  Both endpoints accept the values accepted by `->address`. Invalid input
+  throws `inet.data.ip.IPAddressException`. Producing `k` addresses takes
+  O(k) time and O(1) additional space per realized step."
   [start stop]
   (let [start (->address start)
         stop (address->BigInteger (->address stop))]
@@ -155,9 +178,14 @@
 
 (defn network-compare
   "Compare the prefixes of networks `left` and `right`. The result semantics
-are the same as `compare`. When `stable` is true (the default), the result is 0
-only when the networks are value-identical. When `stable` is false, the result
-is 0 when the networks are identical up to their minimum common prefix length."
+  are the same as `compare`. When `stable` is true (the default), the result is 0
+  only when the networks are value-identical. When `stable` is false, the result
+  is 0 when the networks are identical up to their minimum common prefix length.
+  Arguments accept values accepted by `->network`. This is strict and throws
+  `inet.data.ip.IPNetworkException` for invalid input. Comparison is O(1) for
+  the fixed maximum IP address width. `stable` must be Boolean; nil throws
+  `java.lang.NullPointerException` and a non-Boolean value throws
+  `java.lang.ClassCastException`."
   (^long [left right] (network-compare true left right))
   (^long [stable left right]
      (let [left (->network left)
@@ -167,7 +195,10 @@ is 0 when the networks are identical up to their minimum common prefix length."
        (IPNetworkComparison/networkCompare stable prefix1 plen1 prefix2 plen2))))
 
 (defn network-contains?
-  "Determine if network `net` contains the address/network `addr`."
+  "Determine if network `net` contains the address or network `addr`. Both
+  arguments accept values accepted by `->network`. This is strict and throws
+  `inet.data.ip.IPNetworkException` when either value cannot be interpreted.
+  Comparison is O(1) for the fixed maximum IP address width."
   [net addr]
   (let [net (->network net)
         addr (->network addr)
@@ -177,8 +208,10 @@ is 0 when the networks are identical up to their minimum common prefix length."
 
 (defn network-count
   "Count of addresses in network `net`. `count` on an IPNetwork throws an
-IPNetworkException when this value exceeds Integer/MAX_VALUE; use this
-function for the exact count."
+  IPNetworkException when this value exceeds Integer/MAX_VALUE; use this
+  function for the exact count. `net` accepts values accepted by `->network`.
+  Invalid input throws `inet.data.ip.IPNetworkException`. This is O(1) for the
+  fixed maximum IP address width."
   [net]
   (let [net (->network net)
         nbits (- (address-length net) (network-length net))]
@@ -188,7 +221,12 @@ function for the exact count."
 
 (defn network-nth
   "Return the `n`th address in the network `net`. Negative `n`s count backward
-from the final address at -1."
+  from the final address at -1. `net` accepts values accepted by `->network`.
+  Invalid networks throw `inet.data.ip.IPNetworkException`; an out-of-range
+  index throws `java.lang.IndexOutOfBoundsException`. `n` accepts numeric values;
+  nil throws `java.lang.NullPointerException` and a non-number throws
+  `java.lang.ClassCastException`. The operation is O(1) for the fixed maximum
+  IP address width."
   [net n]
   (let [net (->network net)
         count (network-count net)
@@ -262,13 +300,25 @@ from the final address at -1."
     (IPAddress. nil bytes)))
 
 (defn network
-  "Return the IP network for representation `net` or `prefix` and `length`."
+  "Return the IP network for representation `net` or `prefix` and `length`.
+  Accepted representations are strings, byte arrays, `java.net.InetAddress`,
+  `java.math.BigInteger`, and existing address or network values. This is
+  lenient for those supported representations: malformed input returns `nil`.
+  An unsupported type throws `java.lang.IllegalArgumentException`. In the
+  two-argument form, `length` accepts a number coercible to `long`; nil throws
+  `java.lang.NullPointerException`, a non-number throws
+  `java.lang.ClassCastException`, and a numeric value outside the long range
+  throws `java.lang.IllegalArgumentException`. A long-range prefix outside the
+  address width or not network-aligned returns `nil`. Parsing is O(1) for the
+  fixed address width."
   {:tag `IPNetwork}
   ([net] (-network net))
   ([prefix length] (-network prefix length)))
 
 (defn ->network
-  "Coerce `net` to an IPNetwork. Throws when it cannot interpret `net`."
+  "Coerce `net` to an IPNetwork. Accepted values are the representations
+  accepted by `network`. This is strict: malformed or unsupported input throws
+  `inet.data.ip.IPNetworkException`."
   {:tag `IPNetwork}
   [net]
   (try
@@ -287,12 +337,21 @@ from the final address at -1."
     (IPNetwork. nil bytes length)))
 
 (defn address?
-  "Determine if `addr` represents an IP address."
+  "Determine if `addr` represents an IP address. It accepts strings, byte
+  arrays, `java.net.InetAddress`, `java.math.BigInteger`, and existing IP
+  values. This is lenient and returns `false` for unsupported or malformed
+  input without throwing. Validation is O(1) for the fixed address width."
   [addr] (and (satisfies? IPAddressOperations addr)
               (boolean (-address? addr))))
 
 (defn network?
-  "Determine if `net` represents an IP network."
+  "Determine if `net` represents an IP network. It accepts the same values as
+  `network`; the two-argument form also accepts a number coercible to `long` as
+  the prefix length. This is lenient and returns `false` for unsupported or
+  malformed address/network input. With a supported address, nil `length`
+  throws `java.lang.NullPointerException` and a non-number throws
+  `java.lang.ClassCastException`; a numeric value outside the long range throws
+  `java.lang.IllegalArgumentException`. Validation is O(1)."
   ([net]
      (and (satisfies? IPNetworkOperations net)
           (boolean (network?* net))))
@@ -301,14 +360,28 @@ from the final address at -1."
           (boolean (network?* addr length)))))
 
 (defn inet-address
-  "Generate a java.net.InetAddress from the value `addr`."
+  "Generate a `java.net.InetAddress` from `addr`, which may be any value
+  accepted by `->address`. This is strict and throws
+  `inet.data.ip.IPAddressException` when `addr` cannot be interpreted."
   {:tag `InetAddress}
   [addr] (let [addr (->address addr)]
             (InetAddress/getByAddress (address-bytes addr))))
 
 (defn network-trunc
   "Create a network. Its prefix is the first `length` bits of `prefix`, and its
-length is `length`."
+  length is `length`. `prefix` accepts values accepted by `->address`; `length`
+  accepts a number coercible to `long`. In the one-argument form, a malformed
+  string or nil prefix throws `inet.data.ip.IPNetworkException`, while a
+  malformed primitive byte array throws `inet.data.ip.IPAddressException`; in
+  the two-argument form any invalid prefix throws
+  `inet.data.ip.IPAddressException`. Nil length throws
+  `java.lang.NullPointerException`, a non-number throws
+  `java.lang.ClassCastException`, a negative length throws
+  `java.lang.ArrayIndexOutOfBoundsException`, and a length wider than the
+  address returns `nil` when it is representable as a long. A numeric value
+  outside the long range throws `java.lang.IllegalArgumentException`. In the
+  one-argument form, an unsupported prefix type also throws
+  `java.lang.IllegalArgumentException`. The operation is O(1)."
   {:tag `IPNetwork}
   ([prefix]
      (network-trunc prefix (network-length prefix)))
@@ -325,14 +398,25 @@ length is `length`."
                 length))))
 
 (defn ->network-set
-  "Create a hierarchical set from networks in `coll`."
+  "Create a hierarchical set from networks in finite seqable `coll`, or an
+  empty set when `coll` is nil. Members accept the representations supported by
+  `network`. A malformed supported member becomes nil; a one-member nil set is
+  retained, while comparing nil with another member throws
+  `inet.data.ip.IPNetworkException`. An unsupported member or non-seqable
+  `coll` throws `java.lang.IllegalArgumentException`. Building `n` members takes
+  O(n^2) worst-case time and O(n) space."
   [coll]
   (-> (apply hier-set-by network-contains? network-compare
              (map network coll))
       (vary-meta assoc :type ::network-set)))
 
 (defn network-set
-  "Create a hierarchical set from networks `nets`."
+  "Create a hierarchical set from variadic networks `nets`; each member accepts
+  the representations supported by `network`. A malformed supported member
+  becomes nil; a one-member nil set is retained, while comparing nil with
+  another member throws `inet.data.ip.IPNetworkException`. An unsupported
+  member throws `java.lang.IllegalArgumentException`. Building `n` members
+  takes O(n^2) worst-case time and O(n) space."
   [& nets] (->network-set nets))
 
 (defmethod clojure.core/print-method ::network-set
@@ -347,7 +431,12 @@ length is `length`."
 
 (defn network-supernet
   "Return a network that contains `net`. Its prefix is `n` bits shorter. The
-default is 1."
+  default is 1. `net` accepts values accepted by `->network`; `n` is a numeric
+  integer prefix decrement. Invalid `net` throws `inet.data.ip.IPNetworkException`; nil
+  `n` throws `java.lang.NullPointerException`, and a non-number throws
+  `java.lang.ClassCastException`. A decrement larger than the prefix returns
+  `nil`. Negative `n` is not rejected: it requests a more-specific prefix and
+  returns that network when aligned and in range, otherwise nil. This is O(1)."
   ([net] (network-supernet net 1))
   ([net n]
      (let [net (->network net)
@@ -357,7 +446,18 @@ default is 1."
 
 (defn network-subnets
   "Set of networks in the network `net` which have `n` more bits of network
-prefix, default 1."
+  prefix, default 1. `net` accepts values accepted by `->network`; `n` is a
+  non-negative integer prefix increment. Invalid `net` throws
+  `inet.data.ip.IPNetworkException`; nil `n` throws
+  `java.lang.NullPointerException`, a non-number throws
+  `java.lang.ClassCastException`, and a negative `n` can throw
+  `java.lang.IllegalArgumentException` unless `network-length + n` is
+  non-negative and the input prefix is aligned to that shorter length; in that
+  case it returns that one more-general network. Negative values are outside
+  this function's subnet contract. If `n` exceeds the available host bits, the
+  result is an empty set.
+  For `m = 2^n` valid subnets, construction takes O(m log m) time and O(m)
+  output space."
   ([net] (network-subnets net 1))
   ([net n]
      (let [net (->network net)
@@ -373,12 +473,21 @@ prefix, default 1."
        (apply network-set (step lower)))))
 
 (defn address-zero?
-  "True if and only if the address `addr` is the zero address."
+  "True if and only if the address `addr` is the zero address. `addr` must be a
+  string, primitive byte array, `java.net.InetAddress`, `java.math.BigInteger`,
+  or existing IP address/network value. This low-level predicate does not
+  validate supported values; malformed strings can be treated as empty and
+  return true. Nil or an unsupported type throws
+  `java.lang.IllegalArgumentException`. The scan is O(w), where `w` is the
+  supplied byte width."
   [addr] (every? zero? (address-bytes addr)))
 
 (defn address-networks
   "Return the minimal set of networks that contains only the addresses from
-`start` to `stop`, *inclusive*."
+`start` to `stop`, *inclusive*. Both endpoints accept values accepted by
+`->address`; invalid input throws `inet.data.ip.IPAddressException`. For `k`
+output networks, the operation is O(k log k) time and O(k) output space; a
+reversed range returns an empty set."
   [start stop]
   (let [start (->address start)
         stop (->address stop)
@@ -407,12 +516,17 @@ prefix, default 1."
 
 (defn- absorb-networks
   [nets]
-  (reduce (fn [kept net]
-            (if (some #(network-contains? % net) kept)
-              kept
-              (conj (vec (remove #(network-contains? net %) kept)) net)))
-          []
-          (sort network-compare nets)))
+  (loop [remaining (seq (sort network-compare nets))
+         kept []
+         kept-set #{}]
+    (if-let [net (first remaining)]
+      (if (loop [supernet (network-supernet net)]
+            (when supernet
+              (or (contains? kept-set supernet)
+                  (recur (network-supernet supernet)))))
+        (recur (next remaining) kept kept-set)
+        (recur (next remaining) (conj kept net) (conj kept-set net)))
+      kept)))
 
 (defn- merge-network-siblings
   [nets]
@@ -430,7 +544,14 @@ prefix, default 1."
   Values can be addresses or networks. Bare addresses become host networks.
   This function aggregates IPv4 and IPv6 values independently. It skips
   invalid or unsupported values, the same as the invalid values that this
-  namespace's address and network predicates reject."
+  namespace's address and network predicates reject.
+
+  `values` is a collection or seqable of address/network representations.
+  Invalid members are skipped and an empty input returns an empty set. For `n`
+  input values, the worst-case running time is O(n^2) and additional space is
+  O(n); the number of fixed-point passes is bounded by the 128-bit maximum
+  address width. A non-seqable `values` throws
+  `java.lang.IllegalArgumentException`."
   [values]
   (let [nets (->> values
                   (keep aggregate-input-network)
@@ -441,6 +562,41 @@ prefix, default 1."
         (if (= (set nets) (set merged))
           (apply network-set nets)
           (recur merged))))))
+
+(defn network-intersect
+  "Return the intersection of CIDR networks `left` and `right`, or nil when
+  they are disjoint. Since CIDR networks can only overlap by containment, the
+  result is the narrower network."
+  [left right]
+  (let [left (->network left)
+        right (->network right)]
+    (when (= (address-length left) (address-length right))
+      (cond
+        (network-contains? left right) right
+        (network-contains? right left) left))))
+
+(defn network-subtract
+  "Return a minimal `network-set` covering network `left` minus `right`."
+  [left right]
+  (let [left (->network left)
+        right (->network right)]
+    (cond
+      (not= (address-length left) (address-length right))
+      (network-set left)
+
+      (nil? (network-intersect left right))
+      (network-set left)
+
+      (= left right)
+      (network-set)
+
+      (network-contains? right left)
+      (network-set)
+
+      :else
+      (apply network-set
+             (mapcat #(network-subtract % right)
+                     (network-subnets left))))))
 
 (extend-type IPAddress
   IPAddressConstruction
@@ -626,34 +782,18 @@ prefix, default 1."
   (network-length [_]
     (throw (IPNetworkException. "Cannot interpret nil as an IP network."))))
 
+(def ^:private special-use-registry
+  (with-open [reader (io/reader
+                      (or (io/resource "inet/data/special-use-registry.edn")
+                          (throw (ex-info "Special-use registry resource not found."
+                                          {:resource "inet/data/special-use-registry.edn"}))))]
+    (edn/read (java.io.PushbackReader. reader))))
+
 (def ^:private special-use-blocks
-  {:this-network (network "0.0.0.0/8")
-   :private (network "10.0.0.0/8")
-   :shared-address-space (network "100.64.0.0/10")
-   :loopback (network "127.0.0.0/8")
-   :link-local (network "169.254.0.0/16")
-   :private-172 (network "172.16.0.0/12")
-   :ietf-protocol-assignments (network "192.0.0.0/24")
-   :documentation (network "192.0.2.0/24")
-   :six-to-four-relay-anycast (network "192.88.99.0/24")
-   :private-192 (network "192.168.0.0/16")
-   :benchmarking (network "198.18.0.0/15")
-   :documentation-2 (network "198.51.100.0/24")
-   :documentation-3 (network "203.0.113.0/24")
-   :multicast (network "224.0.0.0/4")
-   :reserved (network "240.0.0.0/4")
-   :limited-broadcast (network "255.255.255.255/32")
-   :unspecified (network "::/128")
-   :loopback-v6 (network "::1/128")
-   :ipv4-mapped (network "::ffff:0:0/96")
-   :ipv4-ipv6-translation (network "64:ff9b::/96")
-   :discard-only (network "100::/64")
-   :teredo (network "2001::/32")
-   :documentation-v6 (network "2001:db8::/32")
-   :six-to-four (network "2002::/16")
-   :unique-local (network "fc00::/7")
-   :link-local-v6 (network "fe80::/10")
-   :multicast-v6 (network "ff00::/8")})
+  (into {}
+        (map (fn [{:keys [name] network-literal :network}]
+               [name (network network-literal)]))
+        (:blocks special-use-registry)))
 
 (def ^:private special-use-block-order
   (sort-by (comp - network-length val) special-use-blocks))
@@ -682,7 +822,13 @@ prefix, default 1."
   The function accepts address-like and network-like values. For a network
   value, the result is non-`nil` only when the full network is inside one
   special-use block. IPv4-mapped IPv6 addresses have the `:ipv4-mapped`
-  classification. This function does not unwrap them as IPv4 addresses."
+  classification. This function does not unwrap them as IPv4 addresses. The
+  input may be an address or network representation accepted by this namespace.
+  Concretely, it accepts strings, primitive byte arrays,
+  `java.net.InetAddress`, `java.math.BigInteger`, and existing IP values. This
+  is lenient: malformed, nil, or unsupported input returns `nil` without
+  throwing. Classification is O(1) because address width and the block table
+  are fixed."
   [value]
   (let [block (first (matching-special-use-blocks value))]
     (get special-use-concepts block block)))
@@ -696,7 +842,10 @@ prefix, default 1."
 
   For a network value, the result is true only when the full network is
   inside one private block. This function does not unwrap IPv4-mapped IPv6
-  addresses."
+  addresses. `value` accepts strings, primitive byte arrays,
+  `java.net.InetAddress`, `java.math.BigInteger`, and existing IP values. This
+  is lenient: malformed, nil, or unsupported input returns false without
+  throwing. Classification is O(1)."
   [value]
   (special-use-in? value #{:private :private-172 :private-192}))
 
@@ -705,7 +854,10 @@ prefix, default 1."
 
   For a network value, the result is true only when the full network is
   inside a loopback block. This function does not unwrap IPv4-mapped IPv6
-  addresses."
+  addresses. `value` accepts strings, primitive byte arrays,
+  `java.net.InetAddress`, `java.math.BigInteger`, and existing IP values. This
+  is lenient: malformed, nil, or unsupported input returns false without
+  throwing. Classification is O(1)."
   [value]
   (special-use-in? value #{:loopback :loopback-v6}))
 
@@ -714,7 +866,10 @@ prefix, default 1."
 
   For a network value, the result is true only when the full network is
   inside a link-local block. This function does not unwrap IPv4-mapped IPv6
-  addresses."
+  addresses. `value` accepts strings, primitive byte arrays,
+  `java.net.InetAddress`, `java.math.BigInteger`, and existing IP values. This
+  is lenient: malformed, nil, or unsupported input returns false without
+  throwing. Classification is O(1)."
   [value]
   (special-use-in? value #{:link-local :link-local-v6}))
 
@@ -723,7 +878,10 @@ prefix, default 1."
 
   For a network value, the result is true only when the full network is
   inside a multicast block. This function does not unwrap IPv4-mapped IPv6
-  addresses."
+  addresses. `value` accepts strings, primitive byte arrays,
+  `java.net.InetAddress`, `java.math.BigInteger`, and existing IP values. This
+  is lenient: malformed, nil, or unsupported input returns false without
+  throwing. Classification is O(1)."
   [value]
   (special-use-in? value #{:multicast :multicast-v6}))
 
@@ -732,7 +890,10 @@ prefix, default 1."
 
   For a network value, the result is true only when the full network is
   inside the unique-local block. This function does not unwrap IPv4-mapped
-  IPv6 addresses."
+  IPv6 addresses. `value` accepts strings, primitive byte arrays,
+  `java.net.InetAddress`, `java.math.BigInteger`, and existing IP values. This
+  is lenient: malformed, nil, or unsupported input returns false without
+  throwing. Classification is O(1)."
   [value]
   (special-use-in? value #{:unique-local}))
 
@@ -741,7 +902,10 @@ prefix, default 1."
 
   For a network value, the result is true only when the full network is
   inside the shared address space block. This function does not unwrap
-  IPv4-mapped IPv6 addresses."
+  IPv4-mapped IPv6 addresses. `value` accepts strings, primitive byte arrays,
+  `java.net.InetAddress`, `java.math.BigInteger`, and existing IP values. This
+  is lenient: malformed, nil, or unsupported input returns false without
+  throwing. Classification is O(1)."
   [value]
   (special-use-in? value #{:shared-address-space}))
 
@@ -750,7 +914,10 @@ prefix, default 1."
 
   For a network value, the result is true only when the full network is
   inside a documentation block. This function does not unwrap IPv4-mapped
-  IPv6 addresses."
+  IPv6 addresses. `value` accepts strings, primitive byte arrays,
+  `java.net.InetAddress`, `java.math.BigInteger`, and existing IP values. This
+  is lenient: malformed, nil, or unsupported input returns false without
+  throwing. Classification is O(1)."
   [value]
   (special-use-in? value #{:documentation :documentation-2 :documentation-3
                             :documentation-v6}))
@@ -760,7 +927,10 @@ prefix, default 1."
 
   For a network value, the result is true only when the full network is
   inside the benchmarking block. This function does not unwrap IPv4-mapped
-  IPv6 addresses."
+  IPv6 addresses. `value` accepts strings, primitive byte arrays,
+  `java.net.InetAddress`, `java.math.BigInteger`, and existing IP values. This
+  is lenient: malformed, nil, or unsupported input returns false without
+  throwing. Classification is O(1)."
   [value]
   (special-use-in? value #{:benchmarking}))
 
@@ -768,7 +938,11 @@ prefix, default 1."
   "Return true when `value` is the IPv6 unspecified address.
 
   For a network value, the result is true only when the full network is
-  `::/128`. This function does not unwrap IPv4-mapped IPv6 addresses."
+  `::/128`. This function does not unwrap IPv4-mapped IPv6 addresses. `value`
+  accepts strings, primitive byte arrays, `java.net.InetAddress`,
+  `java.math.BigInteger`, and existing IP values. This is lenient: malformed,
+  nil, or unsupported input returns false without throwing. Classification is
+  O(1)."
   [value]
   (special-use-in? value #{:unspecified}))
 
@@ -777,7 +951,10 @@ prefix, default 1."
 
   For a network value, the result is true only when the full network is
   `255.255.255.255/32`. This function does not unwrap IPv4-mapped IPv6
-  addresses."
+  addresses. `value` accepts strings, primitive byte arrays,
+  `java.net.InetAddress`, `java.math.BigInteger`, and existing IP values. This
+  is lenient: malformed, nil, or unsupported input returns false without
+  throwing. Classification is O(1)."
   [value]
   (special-use-in? value #{:limited-broadcast}))
 
@@ -786,7 +963,10 @@ prefix, default 1."
 
   For a network value, the result is true only when the full network is
   inside the reserved block. This function does not unwrap IPv4-mapped IPv6
-  addresses."
+  addresses. `value` accepts strings, primitive byte arrays,
+  `java.net.InetAddress`, `java.math.BigInteger`, and existing IP values. This
+  is lenient: malformed, nil, or unsupported input returns false without
+  throwing. Classification is O(1)."
   [value]
   (special-use-in? value #{:reserved}))
 
@@ -795,7 +975,10 @@ prefix, default 1."
 
   For a network value, the result is true only when the full network is
   outside every special-use block. This function does not unwrap IPv4-mapped
-  IPv6 addresses."
+  IPv6 addresses. `value` accepts strings, primitive byte arrays,
+  `java.net.InetAddress`, `java.math.BigInteger`, and existing IP values. This
+  is lenient: malformed, nil, or unsupported input returns false without
+  throwing. Classification is O(1)."
   [value]
   (boolean (and (special-use-network value)
                 (not (seq (matching-special-use-blocks value))))))

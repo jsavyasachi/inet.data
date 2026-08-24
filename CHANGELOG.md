@@ -1,5 +1,43 @@
 # Changelog
 
+## [2.1.0] - 2026-08-23
+
+### Added
+
+- `network-subtract` and `network-intersect` in `inet.data.ip` for exact CIDR
+  set arithmetic, alongside the existing `aggregate-networks`.
+- `inet.data.arpa/classless-ip->domain` and `classless-domain->ip`: opt-in
+  RFC 2317 classless IPv4 reverse-DNS delegation. The existing `ip->domain`/
+  `domain->ip` default behavior is unchanged.
+- IDN conversion in `inet.data.dns` (`idn->ascii`/`ascii->idn`, IDNA2003 via
+  `java.net.IDN`) and a fix so trailing-dot absolute domains round-trip
+  distinctly from their bare form.
+- `inet.data.format.psl` bundles a vendored PSL snapshot for offline/startup
+  use, plus `refresh!`, a configurable fetch timeout, and fallback to the
+  last-known-good list when a refresh fails.
+- Optional Transit (`inet.data.s11n.transit`) and Nippy
+  (`inet.data.s11n.nippy`) serialization for `IPAddress`/`IPNetwork`/
+  `Domain`, following the existing optional-dependency pattern used by the
+  byteable/abracad backends.
+- `test.check` generative coverage for address parsing round-trips, domain
+  normalization, and `aggregate-networks` invariants.
+- Docstrings across `ip`, `dns`, `arpa`, and `psl` now state accepted input
+  types, strict-vs-lenient behavior, the exact exception thrown on failure,
+  and complexity notes where relevant.
+
+### Changed
+
+- The hardcoded special-use address-block map moved to a versioned EDN
+  resource (`resources/inet/data/special-use-registry.edn`), citing its
+  source IANA registries/RFCs, so it's auditable/diffable without a code
+  change.
+
+### Fixed
+
+- `aggregate-networks`' absorb-networks scan was quadratic in the number of
+  input networks; it now walks supernets directly, verified via a checked-in
+  `^:integration` benchmark.
+
 ## [2.0.1] - 2026-08-17
 
 ### Fixed
