@@ -1,1 +1,1 @@
-["^ ","~$test-longest-run",["^ ","~:row",5,"~:col",1,"~:fixed-arities",["~#set",[0]],"~:name","^0","~:ns","~$inet.data.util-test","~:top-ns","^7"],"~:filename","test/inet/data/util_test.clj"]
+["^ ","~$test-longest-run",["^ ","~:row",5,"~:col",1,"~:fixed-arities",["~#set",[0]],"~:name","^0","~:ns","~$inet.data.util-test","~:top-ns","^7","~:arities",["^ ","~i0",["^ ","~:ret","~:boolean"]]],"~:filename","test/inet/data/util_test.clj"]

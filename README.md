@@ -21,13 +21,13 @@ Inet.data is available on Clojars.
 Leiningen (`project.clj`):
 
 ```clj
-[net.clojars.savya/inet.data "2.0.1"]
+[net.clojars.savya/inet.data "2.1.0"]
 ```
 
 Clojure CLI (`deps.edn`):
 
 ```clj
-net.clojars.savya/inet.data {:mvn/version "2.0.1"}
+net.clojars.savya/inet.data {:mvn/version "2.1.0"}
 ```
 
 ## Building
