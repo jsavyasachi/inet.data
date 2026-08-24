@@ -1,6 +1,8 @@
 (ns inet.data.ip
   "Functions for interacting with IP addresses and networks."
-  (:require [clojure.string :as str]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
             [inet.data.util :refer [ignore-errors case-expr ubyte sbyte longest-run
                                     bytes-hash-code doto-let]]
             [hier-set.core :refer [hier-set-by]])
@@ -9,6 +11,8 @@
            [java.io Serializable]
            [java.util Arrays]
            [java.net InetAddress]))
+
+(set! *warn-on-reflection* true)
 
 (defprotocol ^:no-doc IPAddressConstruction
   "Construct an address object."
@@ -626,34 +630,18 @@ prefix, default 1."
   (network-length [_]
     (throw (IPNetworkException. "Cannot interpret nil as an IP network."))))
 
+(def ^:private special-use-registry
+  (with-open [reader (io/reader
+                      (or (io/resource "inet/data/special-use-registry.edn")
+                          (throw (ex-info "Special-use registry resource not found."
+                                          {:resource "inet/data/special-use-registry.edn"}))))]
+    (edn/read (java.io.PushbackReader. reader))))
+
 (def ^:private special-use-blocks
-  {:this-network (network "0.0.0.0/8")
-   :private (network "10.0.0.0/8")
-   :shared-address-space (network "100.64.0.0/10")
-   :loopback (network "127.0.0.0/8")
-   :link-local (network "169.254.0.0/16")
-   :private-172 (network "172.16.0.0/12")
-   :ietf-protocol-assignments (network "192.0.0.0/24")
-   :documentation (network "192.0.2.0/24")
-   :six-to-four-relay-anycast (network "192.88.99.0/24")
-   :private-192 (network "192.168.0.0/16")
-   :benchmarking (network "198.18.0.0/15")
-   :documentation-2 (network "198.51.100.0/24")
-   :documentation-3 (network "203.0.113.0/24")
-   :multicast (network "224.0.0.0/4")
-   :reserved (network "240.0.0.0/4")
-   :limited-broadcast (network "255.255.255.255/32")
-   :unspecified (network "::/128")
-   :loopback-v6 (network "::1/128")
-   :ipv4-mapped (network "::ffff:0:0/96")
-   :ipv4-ipv6-translation (network "64:ff9b::/96")
-   :discard-only (network "100::/64")
-   :teredo (network "2001::/32")
-   :documentation-v6 (network "2001:db8::/32")
-   :six-to-four (network "2002::/16")
-   :unique-local (network "fc00::/7")
-   :link-local-v6 (network "fe80::/10")
-   :multicast-v6 (network "ff00::/8")})
+  (into {}
+        (map (fn [{:keys [name] network-literal :network}]
+               [name (network network-literal)]))
+        (:blocks special-use-registry)))
 
 (def ^:private special-use-block-order
   (sort-by (comp - network-length val) special-use-blocks))

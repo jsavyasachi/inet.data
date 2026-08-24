@@ -1,8 +1,12 @@
 (ns inet.data.ip-test
-  (:require [inet.data.ip :as ip])
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [inet.data.ip :as ip])
   (:use [clojure.test])
   (:import [java.net InetAddress]
            [inet.data.ip IPException IPNetworkException]))
+
+(set! *warn-on-reflection* true)
 
 (deftest test-strict-network-operations-reject-invalid-input
   (is (thrown? IPException
@@ -215,9 +219,10 @@
 (deftest test-network-set-to-array-jdk-11
   (let [expected [(ip/network "10.0.0.0/24")
                  (ip/network "10.0.1.0/24")]
-        networks (ip/network-set "10.0.0.0/24" "10.0.1.0/24")]
-    (is (= expected (vec (.toArray networks))))
-    (is (= expected (vec (.toArray networks (into-array expected)))))
+        networks (ip/network-set "10.0.0.0/24" "10.0.1.0/24")
+        ^objects target (into-array Object expected)]
+    (is (= expected (vec (.toArray ^java.util.Collection networks))))
+    (is (= expected (vec (.toArray ^java.util.Collection networks target))))
     (is (= expected (vec networks)))
     (is (= expected (into [] networks)))))
 
@@ -348,6 +353,19 @@
         (is (= expected (ip/special-use representative)) representative)
         (is (= expected (ip/special-use first)) first)
         (is (= expected (ip/special-use last)) last)))))
+
+(deftest test-special-use-registry-resource
+  (let [resource (io/resource "inet/data/special-use-registry.edn")]
+    (is resource "special-use registry is on the classpath")
+    (when resource
+      (let [registry (edn/read (java.io.PushbackReader. (io/reader resource)))]
+        (is (= "repository-snapshot-2026-08-23" (:registry-version registry)))
+        (is (= ["IPv4 Special-Purpose Address Space"
+                "IPv6 Special-Purpose Address Space"]
+               (:source-registries registry)))
+        (is (some #(= {:name :private :network "10.0.0.0/8"} %) (:blocks registry)))
+        (is (= :private (ip/special-use "10.1.2.3")))
+        (is (= :documentation (ip/special-use "2001:db8::1")))))))
 
 (deftest test-special-use-predicates
   (testing "Category predicates"
