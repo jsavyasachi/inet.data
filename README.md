@@ -46,6 +46,27 @@ Inet.data supports IP addresses and networks, DNS domain names, and reverse
 DNS domains. Examples follow. See the [detailed API
 documentation](https://cljdoc.org/d/net.clojars.savya/inet.data).
 
+### Common workflows
+
+Route an address through a CIDR set:
+
+```clj
+(require '[inet.data.ip :as ip])
+(def private-ranges (ip/network-set "10.0.0.0/8" "192.168.0.0/16"))
+(get private-ranges "10.20.30.40") ;;=> (#ip/network "10.0.0.0/8")
+```
+
+Find the public-suffix boundary for a DNS name:
+
+```clj
+(require '[clojure.java.io :as io]
+         '[inet.data.format.psl :as psl])
+
+(with-open [source (io/reader (java.io.StringReader. "com\nco.uk\n"))]
+  (psl/lookup (psl/load source) "www.example.co.uk"))
+;;=> #dns/domain "example.co.uk"
+```
+
 ### inet.data.ip
 
 The `inet.data.ip` namespace defines types for IP addresses and networks, and
