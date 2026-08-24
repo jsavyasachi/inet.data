@@ -53,3 +53,35 @@
   (doseq [value [nil "garbage" "1.2.0.10.in-addr.arpa.bad" "1.2.0.10.in-addr.arpa.."]]
     (is (nil? (arpa/domain->ip value)) value))
   (is (nil? (arpa/ip->domain "not-an-address"))))
+
+(deftest test-classless-ipv4-network-roundtrip
+  (doseq [[network expected-domain]
+          [["192.0.2.0/26" "0/26.2.0.192.in-addr.arpa"]
+           ["198.51.100.128/25" "128/25.100.51.198.in-addr.arpa"]
+           ["203.0.113.64/27" "64/27.113.0.203.in-addr.arpa"]]]
+    (let [network (ip/network network)
+          domain (arpa/classless-ip->domain network)]
+      (is (= expected-domain (str domain)))
+      (is (= network (arpa/classless-domain->ip domain))))))
+
+(deftest test-classless-prefix-range
+  (doseq [prefix (range 25 32)]
+    (let [network (ip/network "192.0.2.0" prefix)
+          domain (arpa/classless-ip->domain network)]
+      (is (dns/domain? domain) prefix)
+      (is (= network (arpa/classless-domain->ip domain)) prefix)))
+  (doseq [prefix (concat (range 0 25) [32])]
+    (is (nil? (arpa/classless-ip->domain
+               (str "192.0.2.0/" prefix))) prefix)
+    (is (nil? (arpa/classless-domain->ip
+               (format "0/%d.2.0.192.in-addr.arpa" prefix))) prefix)))
+
+(deftest test-classless-invalid-input
+  (doseq [value [nil (ip/address "192.0.2.0")
+                (ip/network "2001:db8::/56") "not-an-ip"]]
+    (is (nil? (arpa/classless-ip->domain value)) value))
+  (doseq [value [nil "garbage" "0/0.2.0.192.in-addr.arpa"
+                "0/32.2.0.192.in-addr.arpa"
+                "0/x.2.0.192.in-addr.arpa"
+                "0/26.2.0.192.example"]]
+    (is (nil? (arpa/classless-domain->ip value)) value)))
