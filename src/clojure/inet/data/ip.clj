@@ -10,6 +10,8 @@
            [java.util Arrays]
            [java.net InetAddress]))
 
+(set! *warn-on-reflection* true)
+
 (defprotocol ^:no-doc IPAddressConstruction
   "Construct an address object."
   (^:private -address [addr]
@@ -407,12 +409,17 @@ prefix, default 1."
 
 (defn- absorb-networks
   [nets]
-  (reduce (fn [kept net]
-            (if (some #(network-contains? % net) kept)
-              kept
-              (conj (vec (remove #(network-contains? net %) kept)) net)))
-          []
-          (sort network-compare nets)))
+  (loop [remaining (seq (sort network-compare nets))
+         kept []
+         kept-set #{}]
+    (if-let [net (first remaining)]
+      (if (loop [supernet (network-supernet net)]
+            (when supernet
+              (or (contains? kept-set supernet)
+                  (recur (network-supernet supernet)))))
+        (recur (next remaining) kept kept-set)
+        (recur (next remaining) (conj kept net) (conj kept-set net)))
+      kept)))
 
 (defn- merge-network-siblings
   [nets]

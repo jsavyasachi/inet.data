@@ -36,6 +36,10 @@ The build generates the Java parsers from the Ragel grammars under
 `src/ragel`. Run `clojure -T:build ragel` to generate them again. You need
 Ragel only when you change the grammars. Do not edit the generated Java files.
 
+The large synthetic IP performance benchmark is opt-in because it is slow:
+`clojure -T:build compile-java && clojure -M:test --profile integration --focus-meta :integration`.
+Normal test runs skip tests tagged `^:integration`.
+
 ## Usage
 
 Inet.data supports IP addresses and networks, DNS domain names, and reverse
