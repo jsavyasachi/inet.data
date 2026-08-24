@@ -2,6 +2,14 @@
   (:require [inet.data.dns :as dns])
   (:use [clojure.test]))
 
+(set! *warn-on-reflection* true)
+
+(defn- invoke-public
+  [sym & args]
+  (if-let [f (ns-resolve 'inet.data.dns sym)]
+    (apply f args)
+    ::missing-public-function))
+
 (deftest test-strict-domain-coercion-and-operations
   (doseq [[f args]
           [[dns/->domain ["bad..com"]]
@@ -52,6 +60,31 @@
         "IDNs are left Punycode-encoded")
     (is (= "www.exâmple.com" (-> "www.exâmple.com" dns/domain dns/idn-str))
         "Explicit IDN string form decodes Punycode")))
+
+(deftest test-idn-conversion
+  (testing "Java IDN conversion"
+    (is (= "www.xn--exmple-cua.com"
+           (invoke-public 'idn->ascii "www.exämple.com")))
+    (is (= "www.exämple.com"
+           (invoke-public 'ascii->idn "www.xn--exmple-cua.com")))
+    (is (= "WWW.xn--exmple-cua.COM."
+           (invoke-public 'idn->ascii "WWW.ExÄMPLE.COM.")))
+    (is (= "WWW.exämple.COM."
+           (invoke-public 'ascii->idn "WWW.xn--exmple-cua.COM.")))
+    (is (thrown? IllegalArgumentException
+                 (invoke-public 'idn->ascii "bad..com")))
+    (is (= "bad..com"
+           (invoke-public 'ascii->idn "bad..com")))))
+
+(deftest test-trailing-dot-domain
+  (let [absolute (dns/domain "example.com.")
+        relative (dns/domain "example.com")]
+    (is (dns/domain? absolute))
+    (is (= "example.com." (str absolute)))
+    (is (= ["example" "com" ""] (vec (dns/domain-labels absolute))))
+    (is (not= absolute relative))
+    (is (not= 0 (dns/domain-compare absolute relative)))
+    (is (= "example.com." (dns/idn-str absolute)))))
 
 (deftest test-domain-compare
   (testing "Domain comparison"
@@ -133,9 +166,10 @@
 (deftest test-domain-set-to-array-jdk-11
   (let [expected [(dns/domain "example.com")
                  (dns/domain "example.net")]
-        domains (dns/domain-set "example.com" "example.net")]
+        ^java.util.Collection domains (dns/domain-set "example.com" "example.net")]
     (is (= expected (vec (.toArray domains))))
-    (is (= expected (vec (.toArray domains (into-array expected)))))
+    (let [^objects empty-array (make-array Object (count expected))]
+      (is (= expected (vec (.toArray domains empty-array)))))
     (is (= expected (vec domains)))
     (is (= expected (into [] domains)))))
 
