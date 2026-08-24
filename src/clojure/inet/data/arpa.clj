@@ -7,6 +7,8 @@ depends on the other."
             [inet.data.dns :as dns]
             [inet.data.ip :as ip]))
 
+(set! *warn-on-reflection* true)
+
 (defn- byte-unsigned
   [^bytes bytes index]
   (bit-and 0xff (aget bytes index)))
@@ -58,6 +60,30 @@ depends on the other."
                (ipv6-domain-name bytes prefix-length)))))))
     (catch Exception _ nil)))
 
+(defn- classless-ipv4-domain-name
+  [^bytes bytes prefix-length]
+  (let [octets (map #(byte-unsigned bytes %) (range 4))]
+    (str (first (reverse octets)) "/" prefix-length "."
+         (->> octets (drop-last) reverse (str/join "."))
+         ".in-addr.arpa")))
+
+(defn classless-ip->domain
+  "Return the RFC 2317 reverse-DNS `dns/domain` for an IPv4 network.
+
+  This opt-in conversion accepts classless prefixes from `/25` through `/31`
+  beneath a `/24` reverse zone. It returns `nil` for IPv4 addresses, IPv6
+  values, prefixes outside that range, and malformed input. The existing
+  `ip->domain` behavior is unchanged."
+  [value]
+  (try
+    (when (and (ip/network? value)
+               (= 4 (alength ^bytes (ip/address-bytes value)))
+               (<= 25 (ip/network-length value) 31))
+      (dns/domain
+       (classless-ipv4-domain-name (ip/address-bytes value)
+                                   (ip/network-length value))))
+    (catch Exception _ nil)))
+
 (defn- parse-decimal-octet
   [label]
   (when (re-matches #"(?:0|[1-9][0-9]{0,2})" label)
@@ -89,6 +115,36 @@ depends on the other."
       (if (= 4 (count parts))
         (ip/address address)
         (ip/network address (* 8 (count parts)))))))
+
+(defn- classless-label
+  [label]
+  (let [[octet prefix] (str/split label #"/" -1)]
+    (when (and octet prefix
+               (parse-decimal-octet octet)
+               (re-matches #"2[5-9]|3[01]" prefix))
+      [(parse-decimal-octet octet) (Long/parseLong prefix)])))
+
+(defn classless-domain->ip
+  "Return the IPv4 network represented by an RFC 2317 reverse-DNS `value`.
+
+  The classless label must contain the network's final octet and a prefix
+  from `/25` through `/31`, followed by the other three reversed octets and
+  `in-addr.arpa`. One trailing dot is accepted. Malformed input returns `nil`."
+  [value]
+  (try
+    (when (or (string? value) (dns/domain? value))
+      (let [name (str/replace (str value) #"\.$" "")]
+        (when (dns/domain? name)
+          (let [labels (map str/lower-case (dns/domain-labels name))
+                suffix-labels (take-last 2 labels)
+                parts (vec (drop-last 2 labels))]
+            (when (and (= ["in-addr" "arpa"] suffix-labels)
+                       (= 4 (count parts)))
+              (when-let [[octet prefix] (classless-label (first parts))]
+                (when (every? parse-decimal-octet (rest parts))
+                    (ip/network (str/join "." (concat (reverse (rest parts))
+                                                        [octet])) prefix))))))))
+    (catch Exception _ nil)))
 
 (defn- ipv6-domain->ip
   [labels]
