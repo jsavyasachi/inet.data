@@ -29,6 +29,8 @@ immediate parent of a given domain."
            [java.util Arrays]
            [java.net IDN]))
 
+(set! *warn-on-reflection* true)
+
 (defprotocol ^:no-doc DNSDomainConstruction
   "Construct a domain object."
   (^:private -domain [dom]
@@ -184,6 +186,18 @@ standard string form."
   "Convert `dom` to IDN string form. Interpret Punycode."
   [dom] (-> dom domain-byte-seq bytes->name IDN/toUnicode))
 
+(defn idn->ascii
+  "Convert an internationalized domain name to ASCII using Java's IDNA2003
+implementation. This does not implement IDNA2008 or UTS #46."
+  [^String name]
+  (IDN/toASCII name))
+
+(defn ascii->idn
+  "Convert an ASCII internationalized domain name to Unicode using Java's
+IDNA2003 implementation. This does not implement IDNA2008 or UTS #46."
+  [^String name]
+  (IDN/toUnicode name))
+
 (deftype DNSDomain [meta, ^bytes bytes, ^long length]
   Serializable
 
@@ -260,6 +274,15 @@ standard string form."
   (when (-domain? bytes)
     (DNSDomain. nil bytes (alength bytes))))
 
+(defn ^:private string-domain-valid?
+  "Accept a DNS domain with an optional terminal root label."
+  [^bytes bytes]
+  (or (DNSDomainParser/isValid bytes)
+      (and (pos? (alength bytes))
+           (zero? (aget bytes 0))
+           (DNSDomainParser/isValid
+            (Arrays/copyOfRange bytes 1 (alength bytes))))))
+
 (defn domain-next
   "For the domain `child` which is a subdomain of the domain `parent`, return
 the immediate child domain of `parent`. This domain is identical to `child`,
@@ -309,10 +332,13 @@ supply one."
 
 (extend-type String
   DNSDomainConstruction
-  (-domain [this] (domain* this (name->bytes this)))
+  (-domain [this]
+    (let [bytes (name->bytes this)]
+      (when (string-domain-valid? bytes)
+        (DNSDomain. nil bytes (alength bytes)))))
 
   DNSDomainOperations
-  (-domain? [this] (-domain? (name->bytes this)))
+  (-domain? [this] (string-domain-valid? (name->bytes this)))
   (domain-bytes [this] (name->bytes this))
   (domain-length [this] (alength (name->bytes this))))
 
