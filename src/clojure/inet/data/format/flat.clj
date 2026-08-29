@@ -5,7 +5,7 @@
             [clojure.java.io :as io]
             [inet.data.ip :as ip]
             [inet.data.dns :as dns]
-            [inet.data.util :refer [ignore-errors ffilter]]))
+            [inet.data.util :refer [ffilter]]))
 
 (defn ^:private parse-lines [f & readers]
   (->> (mapcat line-seq readers)

@@ -1,5 +1,5 @@
 (ns inet.data.property-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is]]
             [clojure.string :as string]
             [clojure.test.check :as tc]
             [clojure.test.check.generators :as gen]

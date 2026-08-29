@@ -1,8 +1,8 @@
 (ns inet.data.ip-test
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [inet.data.ip :as ip])
-  (:use [clojure.test])
+            [inet.data.ip :as ip]
+            [clojure.test :refer [deftest is testing]])
   (:import [java.net InetAddress]
            [inet.data.ip IPException IPNetworkException]))
 

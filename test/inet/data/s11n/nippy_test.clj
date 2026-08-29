@@ -1,5 +1,5 @@
 (ns inet.data.s11n.nippy-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is]]
             [inet.data.dns :as dns]
             [inet.data.ip :as ip]
             [inet.data.s11n.nippy]

@@ -184,19 +184,6 @@ an arbitrary invalid result if the name cannot be encoded."
          byte-array)
     empty-bytes))
 
-(defn ^:private wire->bytes
-  "Convert a DNS wire-form domain name to an internal normalized byte form."
-  (^bytes [wire]
-     (->> [nil wire]
-          (iterate (fn [[state data]]
-                     (let [n (inc (first data))]
-                       [(conj state (take n data))
-                        (drop n data)])))
-          (ffilter (comp empty? second)) first
-          (drop 1) (apply concat) byte-array))
-  (^bytes [wire ^long offset ^long length]
-     (->> wire (drop offset) (take length) wire->bytes)))
-
 (defn ^:private bytes->labels
   "Convert the internal normalized byte form of the domain in bytes into a
 sequence of label strings."
@@ -249,8 +236,8 @@ IDNA2003 implementation. This does not implement IDNA2008 or UTS #46."
   Serializable
 
   Object
-  (toString [this] (bytes->name (take length bytes)))
-  (hashCode [this] (bytes-hash-code bytes 0 length))
+  (toString [_] (bytes->name (take length bytes)))
+  (hashCode [_] (bytes-hash-code bytes 0 length))
   (equals [this other]
     (or (identical? this other)
         (and (instance? DNSDomain other)
@@ -259,11 +246,11 @@ IDNA2003 implementation. This does not implement IDNA2008 or UTS #46."
               bytes (domain-bytes other) length))))
 
   IObj
-  (meta [this] meta)
-  (withMeta [this new-meta] (DNSDomain. new-meta bytes length))
+  (meta [_] meta)
+  (withMeta [_ new-meta] (DNSDomain. new-meta bytes length))
 
   Comparable
-  (compareTo [this other]
+  (compareTo [_ other]
     (let [^bytes obytes (domain-bytes other),
           olength (long (domain-length other))]
       (DNSDomainComparison/domainCompare bytes length obytes olength)))
@@ -284,9 +271,9 @@ IDNA2003 implementation. This does not implement IDNA2008 or UTS #46."
   (-domain [this] this)
 
   DNSDomainOperations
-  (-domain? [this] true)
-  (domain-bytes [this] bytes)
-  (domain-length [this] length))
+  (-domain? [_] true)
+  (domain-bytes [_] bytes)
+  (domain-length [_] length))
 
 (ns-unmap *ns* '->DNSDomain)
 
@@ -324,7 +311,7 @@ Parsing is O(b) in input length."
 
 (defn ^:private domain*
   "Private bytes->domain factory."
-  [orig ^bytes bytes]
+  [^bytes bytes]
   (when (-domain? bytes)
     (DNSDomain. nil bytes (alength bytes))))
 
@@ -386,9 +373,10 @@ length."
         (when (pos? length)
           (DNSDomain. nil bytes length))))))
 
+#_:clj-kondo/ignore
 (extend-type (java.lang.Class/forName "[B")
   DNSDomainConstruction
-  (-domain [this] (domain* this this))
+    (-domain [this] (domain* this))
 
   DNSDomainOperations
   (-domain? [this] (DNSDomainParser/isValid ^bytes this))
@@ -409,12 +397,12 @@ length."
 
 (extend-type nil
   DNSDomainConstruction
-  (-domain [this] nil)
+  (-domain [_] nil)
 
   DNSDomainOperations
-  (-domain? [this] true)
-  (domain-bytes [this] (domain-bytes root-domain))
-  (domain-length [this] 0))
+  (-domain? [_] true)
+  (domain-bytes [_] (domain-bytes root-domain))
+  (domain-length [_] 0))
 
 (defmethod clojure.core/print-method DNSDomain
   ([^DNSDomain dom ^java.io.Writer w]

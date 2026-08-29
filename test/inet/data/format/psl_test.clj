@@ -1,8 +1,8 @@
 (ns inet.data.format.psl-test
   (:require [inet.data.format.psl :as psl]
             [inet.data.dns :as dns]
-            [clojure.java.io :as io])
-  (:use [clojure.test]))
+            [clojure.java.io :as io]
+            [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (defn use-local-psl
   [f] (let [psl-url (io/resource "effective_tld_names.dat")]

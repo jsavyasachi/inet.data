@@ -2,15 +2,14 @@
   (:require [byteable.core :as b]
             [inet.data.dns :as dns]
             [inet.data.ip :as ip]
-            [inet.data.s11n.byteable])
-  (:use [clojure.test]
-        [inet.data.util :only [doto-let]])
+            [inet.data.s11n.byteable]
+            [clojure.test :refer [deftest is testing]])
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream
                     DataInputStream DataOutputStream]))
 
 (defn- round-trip
-  [x] (let [baos (doto-let [baos (ByteArrayOutputStream.)]
-                   (b/write x (DataOutputStream. baos)))
+  [x] (let [baos (ByteArrayOutputStream.)
+            _ (b/write x (DataOutputStream. baos))
             dis (->> baos .toByteArray ByteArrayInputStream. DataInputStream.)
             read (b/read-for (class x))]
         (read nil dis)))

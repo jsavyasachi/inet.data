@@ -1,6 +1,5 @@
 (ns inet.data.util
-  "Utility functions."
-  (:import [clojure.lang IFn ILookup IObj Seqable]))
+  "Utility functions.")
 
 (defmacro ignore-errors
   "Evaluate `body` and return its result, or `nil` if it throws a

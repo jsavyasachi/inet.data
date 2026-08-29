@@ -111,7 +111,7 @@ See the tests for examples."
         (swap! psl-cache assoc url loaded)
         loaded)
       (catch Exception _
-        (or @bundled-psl)))))
+        @bundled-psl))))
 
 (defn refresh!
   "Refresh the cached default PSL.

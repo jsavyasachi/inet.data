@@ -69,35 +69,35 @@
   Serializable
 
   Object
-  (toString [this]
+  (toString [_]
     (str (string-address bytes)
          (when-let [zone (:zone meta)]
            (str "%" zone))))
-  (hashCode [this] (bytes-hash-code bytes))
+  (hashCode [_] (bytes-hash-code bytes))
   (equals [this other]
     (or (identical? this other)
         (and (instance? IPAddress other)
              (Arrays/equals bytes ^bytes (address-bytes other)))))
 
   IObj
-  (meta [this] meta)
-  (withMeta [this new-meta] (IPAddress. new-meta bytes))
+  (meta [_] meta)
+  (withMeta [_ new-meta] (IPAddress. new-meta bytes))
 
   Comparable
-  (compareTo [this other]
+  (compareTo [_ other]
     (let [plen1 (long (address-length bytes))
           ^bytes prefix2 (address-bytes other),
           plen2 (long (network-length other))]
       (IPNetworkComparison/networkCompare bytes plen1 prefix2 plen2)))
 
   IPAddressOperations
-  (-address? [this] true)
-  (address-bytes [this] bytes)
-  (address-length [this] (address-length bytes))
+  (-address? [_] true)
+  (address-bytes [_] bytes)
+  (address-length [_] (address-length bytes))
 
   IPNetworkOperations
-  (network?* [this] false)
-  (network-length [this] (address-length bytes)))
+  (network?* [_] false)
+  (network-length [_] (address-length bytes)))
 
 (ns-unmap *ns* '->IPAddress)
 
@@ -240,8 +240,8 @@
   Serializable
 
   Object
-  (toString [this] (str (string-address prefix) "/" length))
-  (hashCode [this] (bytes-hash-code prefix length))
+  (toString [_] (str (string-address prefix) "/" length))
+  (hashCode [_] (bytes-hash-code prefix length))
   (equals [this other]
     (or (identical? this other)
         (and (instance? IPNetwork other)
@@ -249,11 +249,11 @@
              (Arrays/equals prefix ^bytes (address-bytes other)))))
 
   IObj
-  (meta [this] meta)
-  (withMeta [this new-meta] (IPNetwork. new-meta prefix length))
+  (meta [_] meta)
+  (withMeta [_ new-meta] (IPNetwork. new-meta prefix length))
 
   Comparable
-  (compareTo [this other]
+  (compareTo [_ other]
     (let [^bytes prefix2 (address-bytes other),
           plen2 (long (network-length other))]
       (IPNetworkComparison/networkCompare prefix length prefix2 plen2)))
@@ -284,18 +284,18 @@
     (address-range (nth this 0) (nth this -1)))
 
   IPAddressOperations
-  (-address? [this] false)
-  (address-bytes [this] prefix)
-  (address-length [this] (address-length prefix))
+  (-address? [_] false)
+  (address-bytes [_] prefix)
+  (address-length [_] (address-length prefix))
 
   IPNetworkOperations
-  (network?* [this] true)
-  (network-length [this] length))
+  (network?* [_] true)
+  (network-length [_] length))
 
 (ns-unmap *ns* '->IPNetwork)
 
 (defn ^:private address*
-  [orig ^bytes bytes]
+  [^bytes bytes]
   (when (-address? bytes)
     (IPAddress. nil bytes)))
 
@@ -332,7 +332,7 @@
               (format "Cannot interpret %s as an IP network." (pr-str net)) e)))))
 
 (defn ^:private network*
-  [orig ^bytes bytes ^long length]
+  [^bytes bytes ^long length]
   (when (network?* bytes length)
     (IPNetwork. nil bytes length)))
 
@@ -605,7 +605,7 @@ reversed range returns an empty set."
   IPNetworkConstruction
   (-network
     ([this] (IPNetwork. nil (address-bytes this) (address-length this)))
-    ([this length] (network* this (address-bytes this) length))))
+    ([this length] (network* (address-bytes this) length))))
 
 (extend-type IPNetwork
   IPAddressConstruction
@@ -614,11 +614,12 @@ reversed range returns an empty set."
   IPNetworkConstruction
   (-network
     ([this] this)
-    ([this length] (network* this (address-bytes this) length))))
+    ([this length] (network* (address-bytes this) length))))
 
+#_:clj-kondo/ignore
 (extend-type (java.lang.Class/forName "[B")
   IPAddressConstruction
-  (-address [this] (address* this this))
+  (-address [this] (address* this))
 
   IPAddressOperations
   (-address? [this]
@@ -630,12 +631,12 @@ reversed range returns an empty set."
 
   IPNetworkConstruction
   (-network
-    ([this] (network* this this (address-length this)))
-    ([this length] (network* this this length)))
+    ([this] (network* this (address-length this)))
+    ([this length] (network* this length)))
 
   IPNetworkOperations
   (network?*
-    ([this] false)
+    ([_] false)
     ([this length]
        (and (-address? this)
             (>= length 0)
@@ -693,12 +694,12 @@ reversed range returns an empty set."
        (let [[prefix length] (string-network-parts this)]
          (when prefix
            (if length
-             (network* this prefix length)
-             (network* this prefix (address-length prefix))))))
+             (network* prefix length)
+             (network* prefix (address-length prefix))))))
     ([this length]
        (let [[prefix _] (string-network-parts this)]
          (when prefix
-           (network* this prefix length)))))
+           (network* prefix length)))))
 
   IPNetworkOperations
   (network?*
@@ -724,10 +725,10 @@ reversed range returns an empty set."
 (extend-type InetAddress
   IPAddressConstruction
   (-address [addr]
-    (address* (.getHostAddress addr) (.getAddress addr)))
+    (address* (.getAddress addr)))
 
   IPAddressOperations
-  (-address? [addr] true)
+  (-address? [_] true)
   (address-bytes [addr] (.getAddress addr))
   (address-length [addr]
     (case-expr (class addr)
@@ -738,20 +739,20 @@ reversed range returns an empty set."
   IPNetworkConstruction
   (-network
     ([this] (IPNetwork. nil (address-bytes this) (address-length this)))
-    ([this length] (network* this (address-bytes this) length)))
+    ([this length] (network* (address-bytes this) length)))
 
   IPNetworkOperations
   (network?*
-    ([this] false)
+    ([_] false)
     ([this length] (network?* (address-bytes this) length)))
   (network-length [this] (address-length this)))
 
 (extend-type BigInteger
   IPAddressConstruction
-  (-address [addr] (address* addr (address-bytes addr)))
+  (-address [addr] (address* (address-bytes addr)))
 
   IPAddressOperations
-  (-address? [addr] true)
+  (-address? [_] true)
   (address-bytes [addr]
     (let [b (.toByteArray addr),
           n (if (> (alength b) IPParser/IPV6_BYTE_LEN)
@@ -766,11 +767,11 @@ reversed range returns an empty set."
   IPNetworkConstruction
   (-network
     ([this] (IPNetwork. nil (address-bytes this) (address-length this)))
-    ([this length] (network* this (address-bytes this) length)))
+    ([this length] (network* (address-bytes this) length)))
 
   IPNetworkOperations
   (network?*
-    ([this] false)
+    ([_] false)
     ([this length] (network?* (address-bytes this) length)))
   (network-length [this] (address-length this)))
 

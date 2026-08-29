@@ -1,10 +1,9 @@
 (ns inet.data.s11n.abracad-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is testing]]
             [abracad.avro :as avro]
             [inet.data.dns :as dns]
             [inet.data.ip :as ip]
-            [inet.data.s11n.abracad :as s11n]
-            [inet.data.util :refer [doto-let]]))
+            [inet.data.s11n.abracad :as s11n]))
 
 (def schema
   (avro/parse-schema

@@ -7,6 +7,7 @@
   (:import [inet.data.ip IPAddress IPNetwork]
            [inet.data.dns DNSDomain]))
 
+#_:clj-kondo/ignore
 (b/extend-byteable
   IPAddress
   (read [_ input]

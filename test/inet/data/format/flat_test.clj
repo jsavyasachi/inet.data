@@ -1,9 +1,8 @@
 (ns inet.data.format.flat-test
   (:require [inet.data.format.flat :as flat]
             [inet.data.dns :as dns]
-            [inet.data.ip :as ip]
-            [clojure.java.io :as io])
-  (:use [clojure.test]))
+            [clojure.java.io :as io]
+            [clojure.test :refer [deftest is testing]]))
 
 (deftest test-load
   (testing "General load"

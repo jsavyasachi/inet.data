@@ -1,6 +1,6 @@
 (ns inet.data.util-test
-  (:require [inet.data.util :as util])
-  (:use [clojure.test]))
+  (:require [inet.data.util :as util]
+            [clojure.test :refer [deftest is testing]]))
 
 (deftest test-longest-run
   (testing "Returns the first run when the longest runs tie"

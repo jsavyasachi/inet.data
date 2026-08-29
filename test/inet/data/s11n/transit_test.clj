@@ -1,5 +1,5 @@
 (ns inet.data.s11n.transit-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is]]
             [cognitect.transit :as transit]
             [inet.data.dns :as dns]
             [inet.data.ip :as ip]

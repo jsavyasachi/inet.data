@@ -18,8 +18,10 @@
     (.readFully in bytes)
     bytes))
 
+#_:clj-kondo/ignore
 (nippy/extend-freeze IPAddress :inet.data/ip-address [x out]
   (write-bytes (ip/address-bytes x) out))
+#_:clj-kondo/ignore
 (nippy/extend-thaw :inet.data/ip-address [in]
   (ip/address (read-bytes in)))
 

@@ -2,8 +2,8 @@
   (:require [clojure.string :as str]
             [inet.data.arpa :as arpa]
             [inet.data.dns :as dns]
-            [inet.data.ip :as ip])
-  (:use [clojure.test]))
+            [inet.data.ip :as ip]
+            [clojure.test :refer [deftest is]]))
 
 (deftest test-ipv4-address-roundtrip
   (let [addr (ip/address "10.0.2.1")

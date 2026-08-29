@@ -1,6 +1,6 @@
 (ns inet.data.dns-test
-  (:require [inet.data.dns :as dns])
-  (:use [clojure.test]))
+  (:require [inet.data.dns :as dns]
+            [clojure.test :refer [deftest is testing]]))
 
 (set! *warn-on-reflection* true)
 
