@@ -145,6 +145,10 @@
   {:tag `BigInteger}
   [addr] (->> addr address-bytes (cons (byte 63)) byte-array BigInteger.))
 
+(defn ^:private internal-BigInteger->address
+  [^BigInteger addr ^long bits]
+  (IPAddress. nil (byte-array (take-last (/ bits 8) (.toByteArray addr)))))
+
 (defn address-add
   "Return the `n`th address after `addr` in numeric order. `addr` is any value
   accepted by `->address`; `n` may be a number coercible to `long`, a
@@ -169,7 +173,7 @@
               (pos? (.compareTo result (.add lower upper))))
       (throw (ex-info (format "Address addition leaves the %d-bit address range." bits)
                       {:address addr :offset n :bits bits})))
-    (->address result)))
+    (internal-BigInteger->address result bits)))
 
 (defn address-range
   "Return a lazy sequence of addresses from `start` to `stop`, *inclusive*.
@@ -182,7 +186,8 @@
     ((fn step [^BigInteger addr]
        (lazy-seq
         (when-not (pos? (.compareTo addr stop))
-          (cons (address addr) (step (.add addr BigInteger/ONE))))))
+          (cons (internal-BigInteger->address addr (address-length start))
+                (step (.add addr BigInteger/ONE))))))
      (address->BigInteger start))))
 
 (declare ->network)
@@ -496,7 +501,10 @@
            step (fn step [^BigInteger addr]
                   (lazy-seq
                    (when (neg? (.compareTo addr over))
-                     (cons (network addr pbits) (step (.add addr one))))))]
+                     (cons (network (internal-BigInteger->address
+                                     addr (address-length net))
+                                   pbits)
+                           (step (.add addr one))))))]
        (apply network-set (step lower)))))
 
 (defn address-zero?
