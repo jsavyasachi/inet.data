@@ -112,7 +112,10 @@
   Accepted values are strings, byte arrays, `java.net.InetAddress` values,
   `java.math.BigInteger` values, and existing address or network values. This
   is lenient for those supported representations: malformed input returns
-  `nil`. An unsupported type throws `java.lang.IllegalArgumentException`.
+  `nil`. Nonnegative BigInteger values through 2^32-1 are IPv4; larger values
+  through 2^128-1 are IPv6, and values outside those ranges throw
+  `java.lang.ExceptionInfo` rather than being truncated. An unsupported type
+  throws `java.lang.IllegalArgumentException`.
   Parsing is O(1) for the fixed maximum address width."
   {:tag `IPAddress}
   [addr] (-address addr))
@@ -306,6 +309,20 @@
   [^bytes bytes]
   (when (-address? bytes)
     (IPAddress. nil bytes)))
+
+(defn ^:private big-integer-width
+  [^BigInteger addr]
+  (cond
+    (neg? (.signum addr))
+    (throw (ex-info "BigInteger address must be nonnegative."
+                    {:address addr}))
+    (> (.bitLength addr) IPParser/IPV6_BIT_LEN)
+    (throw (ex-info "BigInteger address exceeds the IPv6 address range."
+                    {:address addr :max-bits IPParser/IPV6_BIT_LEN}))
+    (> (.bitLength addr) IPParser/IPV4_BIT_LEN)
+    IPParser/IPV6_BYTE_LEN
+    :else
+    IPParser/IPV4_BYTE_LEN))
 
 (defn network
   "Return the IP network for representation `net` or `prefix` and `length`.
@@ -762,15 +779,12 @@ reversed range returns an empty set."
   IPAddressOperations
   (-address? [_] true)
   (address-bytes [addr]
-    (let [b (.toByteArray addr),
-          n (if (> (alength b) IPParser/IPV6_BYTE_LEN)
-              IPParser/IPV6_BYTE_LEN
-              IPParser/IPV4_BYTE_LEN)]
-      (byte-array (take-last n b))))
+    (let [b (.toByteArray addr)
+          n (big-integer-width addr)]
+      (byte-array (concat (repeat (max 0 (- n (alength b))))
+                          (take-last n b)))))
   (address-length [addr]
-    (if (> (.bitLength addr) IPParser/IPV6_BIT_LEN)
-      IPParser/IPV6_BIT_LEN
-      IPParser/IPV4_BIT_LEN))
+    (* 8 (big-integer-width addr)))
 
   IPNetworkConstruction
   (-network

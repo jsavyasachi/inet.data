@@ -4,6 +4,7 @@
             [inet.data.ip :as ip]
             [clojure.test :refer [deftest is testing]])
   (:import [java.net InetAddress]
+           [java.math BigInteger]
            [inet.data.ip IPException IPNetworkException]))
 
 (set! *warn-on-reflection* true)
@@ -64,6 +65,15 @@
       (is (= true (ip/address? "17:fe77::1899:12")) "valid")
       (is (= false (ip/address? "17::qq")) "invalid, non-numeric")
       (is (= false (ip/address? "17::18::ae")) "invalid, numeric"))))
+
+(deftest test-big-integer-address-width-follows-magnitude
+  (let [ipv4-max (BigInteger. "4294967295")
+        ipv6-value (BigInteger. "4294967296")]
+    (is (= 32 (ip/address-length (ip/address ipv4-max))))
+    (is (= 128 (ip/address-length (ip/address ipv6-value))))
+    (is (not= (ip/address ipv6-value) (ip/address (BigInteger. "4294967297")))))
+  (is (thrown? clojure.lang.ExceptionInfo
+               (ip/address (BigInteger. "340282366920938463463374607431768211456")))))
 
 (deftest test-address-roundtrip
   (testing "Round trip"
