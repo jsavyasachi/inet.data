@@ -791,7 +791,7 @@ reversed range returns an empty set."
   (address-bytes [addr]
     (let [b (.toByteArray addr)
           n (big-integer-width addr)]
-      (byte-array (concat (repeat (max 0 (- n (alength b))))
+      (byte-array (concat (repeat (max 0 (- n (alength b))) 0)
                           (take-last n b)))))
   (address-length [addr]
     (* 8 (big-integer-width addr)))

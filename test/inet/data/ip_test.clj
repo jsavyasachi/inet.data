@@ -67,6 +67,8 @@
       (is (= false (ip/address? "17::18::ae")) "invalid, numeric"))))
 
 (deftest test-big-integer-address-width-follows-magnitude
+  (is (= "1.2.3.4"
+         (str (ip/address (BigInteger. "16909060")))))
   (let [ipv4-max (BigInteger. "4294967295")
         ipv6-value (BigInteger. "4294967296")]
     (is (= 32 (ip/address-length (ip/address ipv4-max))))
