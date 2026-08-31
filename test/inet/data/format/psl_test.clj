@@ -134,3 +134,21 @@
       (binding [psl/*default-psl-url* url]
         (is (= "example.com" (str (psl/lookup "www.example.com"))))
         (is (= "example.com" (str (psl/lookup (psl/refresh! url) "www.example.com"))))))))
+
+(deftest test-cache-release-keeps-multi-list-use-and-releases-url
+  (let [url-a "mock://psl-cache-a"
+        url-b "mock://psl-cache-b"
+        cache (ns-resolve 'inet.data.format.psl 'psl-cache)
+        clear-cache! (ns-resolve 'inet.data.format.psl 'clear-cache!)]
+    (is (some? clear-cache!))
+    (with-redefs [psl/open-url (fn [url _]
+                                 (io/reader (java.io.StringReader.
+                                             (if (= url url-a) "com\n" "org\n"))))]
+      (let [psl-a (psl/refresh! url-a)
+            psl-b (psl/refresh! url-b)]
+        (is (= "example.com" (str (psl/lookup psl-a "www.example.com"))))
+        (is (= "example.org" (str (psl/lookup psl-b "www.example.org"))))
+        (when clear-cache!
+          (clear-cache! url-a)
+          (is (not (contains? @(var-get cache) url-a)))
+          (is (contains? @(var-get cache) url-b)))))))

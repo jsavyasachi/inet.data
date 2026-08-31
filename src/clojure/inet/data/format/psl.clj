@@ -102,6 +102,16 @@ See the tests for examples."
 (def ^:private psl-cache
   (atom {*default-psl-url* @bundled-psl}))
 
+(defn clear-cache!
+  "Release cached parsed PSLs.
+
+  With no arguments, clear every cached URL. With `url`, release only that
+  URL. Explicit PSL values returned by `load` or `refresh!` remain usable, so
+  applications can continue to support multiple lists without retaining every
+  refreshed URL in the process-global cache."
+  ([] (reset! psl-cache {}))
+  ([url] (swap! psl-cache dissoc url)))
+
 (defn- memo-load [url timeout-ms]
   (if-let [cached (get @psl-cache url)]
     cached
