@@ -153,12 +153,20 @@
   conversion throws `java.lang.IllegalArgumentException`. This is O(1)."
   {:tag `IPAddress}
   [addr n]
-  (->> (condp instance? n
-         BigInteger n
-       BigInt     (.toBigInteger ^BigInt n)
-         ,,,,,,     (BigInteger/valueOf (long n)))
-       (.add (address->BigInteger (->address addr)))
-       ->address))
+  (let [n (condp instance? n
+            BigInteger n
+            BigInt     (.toBigInteger ^BigInt n)
+            ,,,,,,     (BigInteger/valueOf (long n)))
+        addr (->address addr)
+        bits (address-length addr)
+        lower (.shiftLeft (BigInteger/valueOf 63) bits)
+        upper (.subtract (.shiftLeft BigInteger/ONE bits) BigInteger/ONE)
+        result (.add (address->BigInteger addr) n)]
+    (when (or (neg? (.compareTo result lower))
+              (pos? (.compareTo result (.add lower upper))))
+      (throw (ex-info (format "Address addition leaves the %d-bit address range." bits)
+                      {:address addr :offset n :bits bits})))
+    (->address result)))
 
 (defn address-range
   "Return a lazy sequence of addresses from `start` to `stop`, *inclusive*.

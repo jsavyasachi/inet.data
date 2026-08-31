@@ -74,6 +74,21 @@
     (let [addr "::2:2:1:1:1"]
       (is (= addr (-> addr ip/address str)) "No IPv6 elision-stomping"))))
 
+(deftest test-address-add-rejects-family-boundary-overflow
+  (testing "IPv4"
+    (is (= "255.255.255.255" (str (ip/address-add "255.255.255.254" 1))))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (ip/address-add "255.255.255.255" 1)))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (ip/address-add "0.0.0.0" -1))))
+  (testing "IPv6"
+    (is (= "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+           (str (ip/address-add "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe" 1))))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (ip/address-add "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff" 1)))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (ip/address-add "::" -1)))))
+
 (deftest test-rfc-5952-ipv6-formatting
   (testing "The first zero run is compressed when longest runs tie"
     (is (= "2001:db8::1:0:0:1"
