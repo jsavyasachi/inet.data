@@ -813,8 +813,10 @@ reversed range returns an empty set."
 (defn ^:private matching-special-use-blocks
   [value]
   (when-let [value (special-use-network value)]
-    (keep (fn [[name block]]
-            (when (network-contains? block value) name))
+          (keep (fn [[name block]]
+            (when (or (network-contains? block value)
+                      (network-contains? value block))
+              name))
           special-use-block-order)))
 
 (defn special-use

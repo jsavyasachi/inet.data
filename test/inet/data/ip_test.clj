@@ -432,6 +432,9 @@
     (is (ip/global? "8.8.8.8"))
     (is (ip/global? "2606:4700:4700::1111"))
     (is (not (ip/global? "192.168.1.1"))))
+  (testing "Global networks must not overlap special-use space"
+    (is (not (ip/global? "0.0.0.0/0")))
+    (is (not (ip/global? "9.0.0.0/7"))))
   (testing "IPv4-mapped IPv6 is not unwrapped"
     (is (= :ipv4-mapped (ip/special-use "::ffff:10.0.0.1")))
     (is (not (ip/private? "::ffff:10.0.0.1"))))
