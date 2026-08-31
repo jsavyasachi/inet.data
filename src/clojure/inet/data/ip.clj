@@ -378,11 +378,13 @@
   `java.lang.ClassCastException`; a numeric value outside the long range throws
   `java.lang.IllegalArgumentException`. Validation is O(1)."
   ([net]
-     (and (satisfies? IPNetworkOperations net)
-          (boolean (network?* net))))
+     (try
+       (boolean (network net))
+       (catch IllegalArgumentException _ false)))
   ([addr length]
-     (and (satisfies? IPNetworkOperations addr)
-          (boolean (network?* addr length)))))
+     (try
+       (boolean (network addr length))
+       (catch IllegalArgumentException _ false))))
 
 (defn inet-address
   "Generate a `java.net.InetAddress` from `addr`, which may be any value

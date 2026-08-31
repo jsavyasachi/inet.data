@@ -168,6 +168,11 @@
           (is (= "fe:11::/32" (-> addr (ip/network 32) str))
               (format "From %s with explicit prefix-length." src)))))))
 
+(deftest test-network-predicate-matches-constructor
+  (doseq [value ["192.0.2.1" (ip/address "192.0.2.1")]]
+    (is (ip/network? value))
+    (is (ip/network value))))
+
 (deftest test-network-trunc
   (testing "Create networks with truncated prefixes"
     (is (= "192.168.0.128/25" (-> "192.168.0.255/25" ip/network-trunc str)))
