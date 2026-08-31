@@ -21,13 +21,13 @@ Inet.data is available on Clojars.
 Leiningen (`project.clj`):
 
 ```clj
-[net.clojars.savya/inet.data "2.1.0"]
+[net.clojars.savya/inet.data "3.0.0"]
 ```
 
 Clojure CLI (`deps.edn`):
 
 ```clj
-net.clojars.savya/inet.data {:mvn/version "2.1.0"}
+net.clojars.savya/inet.data {:mvn/version "3.0.0"}
 ```
 
 ## Building
@@ -177,6 +177,9 @@ list only after a successful parse. A failed refresh returns the last known-good
 list, or the bundled snapshot, and does not discard the cache. Pass
 `{:timeout-ms n}` to `psl/refresh!` to set the connection and read timeout for
 that request. The `*network-timeout-ms*` dynamic var sets the default timeout.
+Call `psl/clear-cache!` with no arguments to release every URL-specific cached
+list, or pass a URL to release only that entry; explicitly loaded or refreshed
+PSL values remain usable after release.
 
 ## License
 

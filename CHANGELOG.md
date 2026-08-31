@@ -1,5 +1,36 @@
 # Changelog
 
+## [3.0.0] - 2026-08-30
+
+### Added
+
+- `inet.data.format.psl/clear-cache!` releases all cached parsed public suffix
+  lists, or one URL-specific entry, so applications refreshing many URLs can
+  bound process-global cache retention.
+
+### Changed
+
+- **Breaking:** `global?` returns `false` for any network that contains or
+  overlaps special-use address space. Callers approving globally routable
+  ranges must account for the whole network, not only whether it is contained
+  by a special-use range.
+- **Breaking:** `address-add` throws when arithmetic crosses an address-family
+  boundary. Callers must keep additions within the valid address range or
+  handle the exception.
+- **Breaking:** `BigInteger` addresses are classified by magnitude: values
+  through `2^32-1` are IPv4 and larger values through `2^128-1` are IPv6;
+  negative or larger values are rejected. Callers must pass a non-negative
+  value no greater than `2^128-1`.
+- **Breaking:** `network?` accepts bare address strings because they are
+  accepted by `network`. Callers relying on `network?` to reject bare
+  addresses must validate the desired CIDR form separately.
+
+### Fixed
+
+- Prevent out-of-range address arithmetic and oversized or negative
+  `BigInteger` values from silently wrapping, truncating, or producing an
+  unrelated valid-looking address.
+
 ## [2.1.0] - 2026-08-23
 
 ### Added
