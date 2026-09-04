@@ -2,7 +2,7 @@
 
 [![Clojars Project](https://img.shields.io/clojars/v/net.clojars.savya/inet.data.svg)](https://clojars.org/net.clojars.savya/inet.data)
 [![cljdoc](https://cljdoc.org/badge/net.clojars.savya/inet.data)](https://cljdoc.org/d/net.clojars.savya/inet.data/CURRENT)
-[![test](https://github.com/jsavyasachi/inet.data/actions/workflows/test.yml/badge.svg)](https://github.com/jsavyasachi/inet.data/actions/workflows/test.yml)
+[![test](https://github.com/savyalabs/inet.data/actions/workflows/test.yml/badge.svg)](https://github.com/savyalabs/inet.data/actions/workflows/test.yml)
 
 Inet.data is a library that models Internet-related entities as *data*. It
 supports applications that are *about* the modeled entities, not applications

@@ -45,12 +45,12 @@
                 :version version
                 :basis @basis
                 :src-dirs ["src/clojure"]
-                :scm {:url "https://github.com/jsavyasachi/inet.data"
-                      :connection "scm:git:https://github.com/jsavyasachi/inet.data.git"
-                      :developerConnection "scm:git:ssh://git@github.com/jsavyasachi/inet.data.git"
+                :scm {:url "https://github.com/savyalabs/inet.data"
+                      :connection "scm:git:https://github.com/savyalabs/inet.data.git"
+                      :developerConnection "scm:git:ssh://git@github.com/savyalabs/inet.data.git"
                       :tag (str "v" version)}
                 :pom-data [[:description "Represent and manipulate various Internet entities as data."]
-                           [:url "https://github.com/jsavyasachi/inet.data"]
+                           [:url "https://github.com/savyalabs/inet.data"]
                            [:licenses
                             [:license
                              [:name "Eclipse Public License 1.0"]
